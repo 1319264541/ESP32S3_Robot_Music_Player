@@ -1,0 +1,6 @@
+# Name,     Type, SubType, Offset,   Size
+nvs,        data, nvs,     0x9000,   0x6000
+# 字库分区：4MB 足够装下正点原子完整字库（关键修改！）
+storage,    data, 0x40,    0xF000,   4M
+phy_init,   data, phy,     ,         0x1000
+factory,    app,  factory, ,         2M
