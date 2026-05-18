@@ -251,6 +251,7 @@ uint8_t wav_play_song(uint8_t *fname)
    uint8_t key1 = 0;
    uint8_t res = 0;
    uint8_t t = 0;
+   uint8_t uart_key = 0;  // 记录串口切歌方向
    
    i2s_play_end = ESP_FAIL;
    i2s_play_next_prev = ESP_FAIL;
@@ -334,7 +335,7 @@ uint8_t wav_play_song(uint8_t *fname)
                    {
                        if (i2s_play_end == ESP_OK)
                        {
-                           res = KEY0_PRES;
+                           res = (uart_key != 0) ? uart_key : KEY0_PRES;
                            break;
                        }
 
@@ -354,14 +355,14 @@ uint8_t wav_play_song(uint8_t *fname)
 
 							 if(music_key1 == KEY0_PRES) //下一首
 							{
-								key1 = KEY0_PRES; // 下一首按键
+								uart_key = KEY0_PRES; // 记录下一首方向
 								i2s_play_next_prev = ESP_OK;
 								music_key1 = 0; // 触发后立即重置
 							}
 
 							else if(music_key1 == KEY1_PRES) //上一首
 							{
-								key1 = KEY1_PRES; // 上一首按键
+								uart_key = KEY1_PRES; // 记录上一首方向
 								i2s_play_next_prev = ESP_OK;
 								music_key1 = 0; // 触发后立即重置
 							}
