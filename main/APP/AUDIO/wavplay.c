@@ -163,7 +163,7 @@ void music(void *pvParameters)
 {
    pvParameters = pvParameters;
 
-   es8311_set_voice_volume(70);                     /* 设置喇叭音量，建议不超过65 */
+   es8311_set_voice_volume(65);                     /* 设置喇叭音量，建议不超过65 */
    es8311_set_voice_mute(0);                        /* 打开DAC */
    xl9555_pin_write(SPK_CTRL_IO, 1);                /* 打开喇叭 */
    vTaskDelay(pdMS_TO_TICKS(20));
@@ -197,6 +197,7 @@ void music(void *pvParameters)
                    }
 
                    f_lseek(g_audiodev.file, file_read_pos);        /* 跳过到之前停止的位置 */
+                   es8311_set_voice_mute(0);              /* 恢复播放时取消静音 */
                }
 
                /* 判断是否播放完成 */
@@ -218,11 +219,13 @@ void music(void *pvParameters)
                if ((g_audiodev.status & 0x0F) == 0x03)
                {
                		f_read(g_audiodev.file,g_audiodev.tbuf, WAV_TX_BUFSIZE, (UINT*)&bytes_write);
-               		i2s_table_size = i2s_table_size + i2s_tx_write(g_audiodev.tbuf, WAV_TX_BUFSIZE);
-
-					vTaskDelay(pdMS_TO_TICKS(3)); /* 适当延时，降低CPU占用（尤其是高采样率大文件时） */
-			   }
-					vTaskDelay(pdMS_TO_TICKS(1)); 
+               		if ((g_audiodev.status & 0x0F) == 0x03)
+               		{
+               			i2s_table_size = i2s_table_size + i2s_tx_write(g_audiodev.tbuf, WAV_TX_BUFSIZE);
+               		}
+				vTaskDelay(pdMS_TO_TICKS(3)); /* 适当延时，降低CPU占用（尤其是高采样率大文件时） */
+			}
+				vTaskDelay(pdMS_TO_TICKS(1)); 
            }
        }
 

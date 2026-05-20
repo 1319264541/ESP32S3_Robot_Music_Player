@@ -140,6 +140,7 @@ void i2s_set_samplerate_bits_sample(int samplerate, int bits_sample)
     ESP_ERROR_CHECK(i2s_channel_reconfig_std_slot(tx_handle, &my_std_cfg.slot_cfg));
     my_std_cfg.clk_cfg.sample_rate_hz = samplerate;    /* 设置采样率 */
     ESP_ERROR_CHECK(i2s_channel_reconfig_std_clock(tx_handle, &my_std_cfg.clk_cfg));
+    /* 注意：此处不重启I2S，由上层 audio_start() 统一处理使能 */
 }
 
 /**
