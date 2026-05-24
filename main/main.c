@@ -52,7 +52,6 @@ uint8_t play_trigger = 0;        // 播放触发标志（1=需要开始播放）
 
 TaskHandle_t UART_Task_Handler;
 
-static radar_target_t g_radar_target = {0};
 
 /**
  * @brief 串口指令解析任务（独立运行，上电仅启动此任务）
@@ -104,7 +103,7 @@ void uart_cmd_task(void *pvParameters)
         }
         
         // 任务延时（降低CPU占用）
-        vTaskDelay(pdMS_TO_TICKS(5));
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 /**
@@ -112,6 +111,27 @@ void uart_cmd_task(void *pvParameters)
  * @param       无
  * @retval      无
  */
+/**
+ * @brief       雷达数据读取任务
+ * @param       pvParameters：未使用
+ */
+void radar_task(void *pvParameters)
+{
+    radar_target_t target = {0};
+    while (1)
+    {
+        if (radar_read_target(&target, 50))
+        {
+            ESP_LOGI("RADAR", "cnt=%d | T1:ang=%d dist=%u | T2:ang=%d dist=%u | T3:ang=%d dist=%u",
+                     target.target_count,
+                     target.targets[0].angle, target.targets[0].distance,
+                     target.targets[1].angle, target.targets[1].distance,
+                     target.targets[2].angle, target.targets[2].distance);
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+
 void app_main(void)
 {
    uint8_t key = 0;
@@ -192,18 +212,12 @@ void app_main(void)
     );
 	}
 
-    while (1)
-    {
-			if (radar_read_target(&g_radar_target, 0))
-		{
-			ESP_LOGI("RADAR", "cnt=%d | T1:ang=%d dist=%u | T2:ang=%d dist=%u | T3:ang=%d dist=%u",
-			         g_radar_target.target_count,
-			         g_radar_target.targets[0].angle, g_radar_target.targets[0].distance,
-			         g_radar_target.targets[1].angle, g_radar_target.targets[1].distance,
-			         g_radar_target.targets[2].angle, g_radar_target.targets[2].distance);
-		}
+	TaskHandle_t radar_task_handle = NULL;
+	xTaskCreatePinnedToCore(
+		radar_task, "radar_task", 4096, NULL, 2, &radar_task_handle, 0);
 
-		if(play_trigger == 1) // 检测到播放触发
+    while (1)
+    {		if(play_trigger == 1) // 检测到播放触发
 		{
 			play_trigger = 0; // 重置触发标志
 			audio_play();      // 调用播放函数（阻塞式）
