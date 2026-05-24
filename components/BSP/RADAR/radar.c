@@ -303,7 +303,7 @@ static int radar_parse_slot(const uint8_t *buf, radar_single_target_t *tgt)
     tgt->range_resolution = r_raw;                    /* 像素距离值, 单位mm */
     tgt->distance         = (uint16_t)sqrtf((float)(x_mm * x_mm + y_mm * y_mm)) / 10;
 
-    /* 目标角度: -atan2f(x,y), 0=正前方, 负=右侧, 正=左侧, 范围 -180~+180 */
+    /* 目标角度: -atan2f(x,y), 0=正前方, 正=右侧, 负=左侧, 范围 -180~+180 */
     tgt->angle            = (int16_t)(-atan2f((float)x_mm, (float)y_mm) * 57.29578f);
 
     return 1;

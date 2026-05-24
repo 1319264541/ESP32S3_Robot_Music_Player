@@ -57,7 +57,7 @@ typedef struct {
     int16_t  x;                 /* X坐标 (cm) */
     int16_t  y;                 /* Y坐标 (cm), 正=远离雷达 */
     int16_t  speed;             /* 速度 (cm/s), 负数=靠近雷达 */
-    int16_t  angle;             /* 目标角度 (deg), 0=正前方, 正=左侧, 负=右侧 */
+    int16_t  angle;             /* 目标角度 (deg), 0=正前方, 正=右侧, 负=左侧 */
     uint16_t range_resolution;  /* 像素距离值 (mm) */
     uint16_t distance;          /* 计算距离 sqrt(x^2+y^2) cm */
 } radar_single_target_t;
