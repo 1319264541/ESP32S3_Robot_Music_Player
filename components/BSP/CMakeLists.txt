@@ -8,7 +8,8 @@ set(src_dirs
             XL9555
             MYI2S
             ES8311
-			USART)
+			USART
+			RADAR)
 
 set(include_dirs
             KEY
@@ -20,7 +21,8 @@ set(include_dirs
             XL9555
             MYI2S
             ES8311
-			USART)
+			USART
+			RADAR)
 
 set(requires
             driver

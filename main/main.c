@@ -37,6 +37,8 @@
 #include "es8311.h"
 #include "driver/uart.h"
 #include "usart.h"
+#include "radar.h"
+#include "esp_log.h"
 
 
 #define RX_BUF_SIZE1 100
@@ -48,7 +50,9 @@ uint8_t pause_config1 = 0;       // 暂停/播放触发标志（1=需要切换状态）
 uint8_t music_key1 = 0;          // 切歌指令标志（KEY0_PRES=下一首，KEY1_PRES=上一首）
 uint8_t play_trigger = 0;        // 播放触发标志（1=需要开始播放）
 
-TaskHandle_t UART_Task_Handler;    // 串口任务句柄
+TaskHandle_t UART_Task_Handler;
+
+static radar_target_t g_radar_target = {0};
 
 /**
  * @brief 串口指令解析任务（独立运行，上电仅启动此任务）
@@ -131,7 +135,11 @@ void app_main(void)
     xl9555_init();                                      /* 初始化按键 */ 
     lcd_init(lcd_config_info);                          /* 初始化LCD */
     es8311_init(I2S_SAMPLE_RATE);                       /* ES8311初始化 */
-	usart_init(115200);                                      /* 初始化串口 */
+	usart_init(115200);
+	radar_init(256000);
+	radar_enable_config();
+	radar_set_mode(1);
+	radar_end_config();                                      /* 初始化串口 */
 	
 	myi2s_init();
 
@@ -186,6 +194,15 @@ void app_main(void)
 
     while (1)
     {
+			if (radar_read_target(&g_radar_target, 0))
+		{
+			ESP_LOGI("RADAR", "cnt=%d | T1:ang=%d dist=%u | T2:ang=%d dist=%u | T3:ang=%d dist=%u",
+			         g_radar_target.target_count,
+			         g_radar_target.targets[0].angle, g_radar_target.targets[0].distance,
+			         g_radar_target.targets[1].angle, g_radar_target.targets[1].distance,
+			         g_radar_target.targets[2].angle, g_radar_target.targets[2].distance);
+		}
+
 		if(play_trigger == 1) // 检测到播放触发
 		{
 			play_trigger = 0; // 重置触发标志
