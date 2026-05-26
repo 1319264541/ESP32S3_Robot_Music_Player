@@ -54,6 +54,11 @@ uint8_t play_trigger = 0;        // 播放触发标志（1=需要开始播放）
 
 TaskHandle_t UART_Task_Handler;
 
+static int16_t  g_track_ang  = 0;
+static uint16_t g_track_dist = 0;
+static uint8_t  g_track_conf = 0;
+static uint8_t  g_track_has  = 0;
+
 
 /**
  * @brief 串口指令解析任务（独立运行，上电仅启动此任务）
@@ -63,6 +68,8 @@ void uart_cmd_task(void *pvParameters)
 {
     unsigned char rx_buf[RX_BUF_SIZE];
     int len;
+    uint32_t last_send_ms = 0;
+
     pvParameters = pvParameters; // 消除未使用警告
     while (1)
     {
@@ -106,6 +113,17 @@ void uart_cmd_task(void *pvParameters)
         
         // 任务延时（降低CPU占用）
         vTaskDelay(pdMS_TO_TICKS(10));
+
+        /* 5Hz radar tracker upload */
+        uint32_t now = pdTICKS_TO_MS(xTaskGetTickCount());
+        if (g_track_has && (now - last_send_ms >= 100)) {
+            char buf[64];
+            int n = snprintf(buf, sizeof(buf),
+                "T,%d,%u\r\n",
+                g_track_ang, g_track_dist);
+            uart_write_bytes(UART_NUM_1, buf, n);
+            last_send_ms = now;
+        }
     }
 }
 /**
@@ -120,15 +138,26 @@ void uart_cmd_task(void *pvParameters)
 void radar_task(void *pvParameters)
 {
     radar_target_t target = {0};
+    radar_tracker_t tracker;
+    radar_filtered_t trk_out;
+    radar_tracker_init(&tracker);
     while (1)
     {
         if (radar_read_target(&target, 50))
         {
-            ESP_LOGI("RADAR", "cnt=%d | T1:ang=%d dist=%u | T2:ang=%d dist=%u | T3:ang=%d dist=%u",
-                     target.target_count,
-                     target.targets[0].angle, target.targets[0].distance,
-                     target.targets[1].angle, target.targets[1].distance,
-                     target.targets[2].angle, target.targets[2].distance);
+            radar_tracker_update(&tracker, &target, &trk_out);
+            if (trk_out.active) {
+                g_track_ang  = trk_out.angle;
+                g_track_dist = trk_out.dist;
+                g_track_conf = trk_out.confidence;
+                g_track_has  = 1;
+                ESP_LOGI("TRACKER", "ang=%d dist=%u conf=%u%% lost=%u",
+                         trk_out.angle, trk_out.dist,
+                         trk_out.confidence, trk_out.consecutive_fail);
+            } else {
+                ESP_LOGI("TRACKER", "no target (locked=%u conf=%u%%)",
+                         tracker.locked, tracker.confidence);
+            }
             radar_view_set_data(&target);
         }
         vTaskDelay(pdMS_TO_TICKS(10));

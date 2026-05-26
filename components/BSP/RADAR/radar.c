@@ -504,6 +504,173 @@ void radar_process_target(radar_target_t *raw, radar_filtered_t *out)
 
 
 /* ====================================================================
+ * 人体目标跟踪器 (锁定-预测-匹配-更新)
+ * ==================================================================== */
+
+#define TRK_MAX_LOST    10      /* 连续丢帧上限 */
+#define TRK_MATCH_CM    60      /* 匹配半径(cm), 距离加权优先选近的 */
+#define TRK_DIST_WEIGHT 0.25f   /* 距离权重, 锁定时优先选近的目标 */
+#define TRK_INIT_ANGLE  60      /* 初始锁定角度范围(°), 与雷达120°FOV一致 */
+#define TRK_INIT_MIN_D  30      /* 初始锁定最小距离(cm) */
+#define TRK_INIT_MAX_D  600     /* 初始锁定最大距离(cm) */
+#define TRK_EMA_ALPHA   0.30f   /* EMA平滑系数 */
+
+void radar_tracker_init(radar_tracker_t *trk)
+{
+    memset(trk, 0, sizeof(*trk));
+    trk->max_lost_frames  = TRK_MAX_LOST;
+    trk->max_match_dist   = TRK_MATCH_CM;
+    trk->init_angle_range = TRK_INIT_ANGLE;
+    trk->init_min_dist    = TRK_INIT_MIN_D;
+    trk->init_max_dist    = TRK_INIT_MAX_D;
+}
+
+void radar_tracker_update(radar_tracker_t *trk, radar_target_t *raw,
+                          radar_filtered_t *out)
+{
+    out->active = 0;
+
+    if (!raw || !raw->data_valid || raw->target_count == 0) {
+        if (trk->locked) {
+            trk->lost_frames++;
+            if (trk->lost_frames >= trk->max_lost_frames) {
+                ESP_LOGW(TAG, "tracker: unlocked (lost %d frames)", trk->lost_frames);
+                trk->locked = 0;
+                trk->confidence = 0;
+                trk->hist_valid = 0;
+            }
+        }
+        return;
+    }
+
+    /* 先做一次质量预筛选, 和 radar_process_target 保持一致 */
+    radar_single_target_t *candidates[3] = {NULL};
+    uint8_t cand_count = 0;
+    for (int i = 0; i < raw->target_count && i < 3; i++) {
+        radar_single_target_t *t = &raw->targets[i];
+        if (t->distance < DIST_MIN_CM || t->distance > DIST_MAX_CM) continue;
+        if (t->speed == 0) continue;  /* 静止目标雷达不可靠, 跳过 */
+        uint16_t dist_mm = (uint16_t)t->distance * 10;
+        float ratio = (dist_mm > 0) ? (float)t->range_resolution / (float)dist_mm : 1.0f;
+        if (t->range_resolution > RNG_RES_ABS_OK && ratio > QUALITY_RATIO_MAX) continue;
+        candidates[cand_count++] = t;
+    }
+
+    if (cand_count == 0) {
+        if (trk->locked) {
+            trk->lost_frames++;
+            if (trk->lost_frames >= trk->max_lost_frames) {
+                ESP_LOGW(TAG, "tracker: unlocked (all rejected, lost=%d)", trk->lost_frames);
+                trk->locked = 0;
+                trk->confidence = 0;
+                trk->hist_valid = 0;
+            }
+        }
+        return;
+    }
+
+    radar_single_target_t *best = NULL;
+
+    if (trk->locked) {
+        /* === 已锁定: 预测位置 + 距离加权评分, 优先选近的目标 === */
+        int16_t pred_x = trk->est_x;
+        int16_t pred_y = trk->est_y;
+        if (trk->hist_valid) {
+            /* 线性外推: p = est + (est - prev) = 2*est - prev */
+            pred_x = trk->est_x * 2 - trk->prev_x;
+            pred_y = trk->est_y * 2 - trk->prev_y;
+        }
+
+        /* 评分 = 预测误差(cm) + 距离权重 × 实际距离(cm)
+           同时预测误差必须在匹配半径内才算候选 */
+        float  best_score = 9999.0f;
+        uint16_t best_err  = 0;
+        for (int i = 0; i < cand_count; i++) {
+            int16_t dx = (int16_t)(candidates[i]->x - pred_x);
+            int16_t dy = (int16_t)(candidates[i]->y - pred_y);
+            uint16_t err = (uint16_t)sqrtf((float)(dx * dx + dy * dy));
+            if (err > trk->max_match_dist) continue;  /* 超出匹配半径, 跳过 */
+            float score = (float)err + TRK_DIST_WEIGHT * (float)candidates[i]->distance;
+            if (score < best_score) {
+                best_score = score;
+                best_err  = err;
+                best = candidates[i];
+            }
+        }
+
+        if (best) {
+            trk->lost_frames = 0;
+            if (trk->confidence < 100) trk->confidence += 5;
+            ESP_LOGD(TAG, "tracker: match err=%u score=%.0f conf=%u%%",
+                     best_err, best_score, trk->confidence);
+        } else {
+            trk->lost_frames++;
+            ESP_LOGD(TAG, "tracker: no match (lost=%d), pred(%d,%d)",
+                     trk->lost_frames, pred_x, pred_y);
+            if (trk->lost_frames >= trk->max_lost_frames) {
+                ESP_LOGW(TAG, "tracker: unlocked after %d lost frames", trk->lost_frames);
+                trk->locked = 0;
+                trk->confidence = 0;
+                trk->hist_valid = 0;
+            }
+            return;
+        }
+    } else {
+        /* === 未锁定: 在正前方±init_angle_range、距离范围内选最近目标 === */
+        uint16_t min_dist = 0xFFFF;
+        for (int i = 0; i < cand_count; i++) {
+            int16_t ang = candidates[i]->angle;
+            uint16_t d  = candidates[i]->distance;
+            if (ang >= -trk->init_angle_range && ang <= trk->init_angle_range
+                && d >= (uint16_t)trk->init_min_dist
+                && d <= (uint16_t)trk->init_max_dist
+                && d < min_dist) {
+                min_dist = d;
+                best = candidates[i];
+            }
+        }
+
+        if (best) {
+            trk->locked     = 1;
+            trk->confidence = 50;
+            trk->lost_frames = 0;
+            trk->hist_valid  = 0;
+            ESP_LOGI(TAG, "tracker: LOCKED ang=%d dist=%u cm", best->angle, best->distance);
+        } else {
+            return;  /* 没有符合条件的目标, 不输出 */
+        }
+    }
+
+    /* === EMA 平滑更新 === */
+    float alpha = TRK_EMA_ALPHA;
+    if (trk->hist_valid) {
+        trk->est_x     = (int16_t)((float)trk->est_x     * (1.0f - alpha) + (float)best->x        * alpha);
+        trk->est_y     = (int16_t)((float)trk->est_y     * (1.0f - alpha) + (float)best->y        * alpha);
+        trk->est_angle = (int16_t)((float)trk->est_angle * (1.0f - alpha) + (float)best->angle    * alpha);
+        trk->est_dist  = (uint16_t)((float)trk->est_dist  * (1.0f - alpha) + (float)best->distance * alpha);
+    } else {
+        trk->est_x     = best->x;
+        trk->est_y     = best->y;
+        trk->est_angle = best->angle;
+        trk->est_dist  = best->distance;
+    }
+
+    /* 保存历史 */
+    trk->prev_x = trk->est_x;
+    trk->prev_y = trk->est_y;
+    trk->hist_valid = 1;
+
+    /* === 输出 === */
+    out->active           = 1;
+    out->x                = trk->est_x;
+    out->y                = trk->est_y;
+    out->angle            = trk->est_angle;
+    out->dist             = trk->est_dist;
+    out->confidence       = trk->confidence;
+    out->consecutive_fail = trk->lost_frames;
+}
+
+/* ====================================================================
  * 数据读取 (状态机 + 变长帧)
  * ==================================================================== */
 
