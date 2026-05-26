@@ -348,30 +348,29 @@ uint8_t wav_play_song(uint8_t *fname)
                        
 						if(uart_config1 == 1)//串口控制标志位
 						{
-							ESP_LOGI("UART", "检测到串口指令：pause=%d, music_key=%d", pause_config1, music_key1); // 新增日志
-							vTaskSuspendAll(); // 挂起所有任务，安全修改共享变量
+							taskENTER_CRITICAL(&my_spinlock);
 							if(pause_config1 == 1 || pause_config1 == 2) //暂停/播放
 							{
 								key1 = BOOT_PRES; // 暂停/播放按键
-								// pause_config1 = 0; // 触发后立即重置
 							}
 
 							 if(music_key1 == KEY0_PRES) //下一首
 							{
 								uart_key = KEY0_PRES; // 记录下一首方向
 								i2s_play_next_prev = ESP_OK;
-								music_key1 = 0; // 触发后立即重置
+								music_key1 = 0;
 							}
 
 							else if(music_key1 == KEY1_PRES) //上一首
 							{
 								uart_key = KEY1_PRES; // 记录上一首方向
 								i2s_play_next_prev = ESP_OK;
-								music_key1 = 0; // 触发后立即重置
+								music_key1 = 0;
 							}
 
 							uart_config1 = 0;
-							xTaskResumeAll(); // 恢复任务
+							taskEXIT_CRITICAL(&my_spinlock);
+							ESP_LOGI("UART", "检测到串口指令：pause=%d, music_key=%d", pause_config1, music_key1);
 						}
 
 					//    if(key1 == KEY1_PRES || key1 == KEY0_PRES) break;

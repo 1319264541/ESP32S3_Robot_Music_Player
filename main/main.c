@@ -38,6 +38,8 @@
 #include "driver/uart.h"
 #include "usart.h"
 #include "radar.h"
+#include "lvgl_port.h"
+#include "radar_view.h"
 #include "esp_log.h"
 
 
@@ -127,6 +129,7 @@ void radar_task(void *pvParameters)
                      target.targets[0].angle, target.targets[0].distance,
                      target.targets[1].angle, target.targets[1].distance,
                      target.targets[2].angle, target.targets[2].distance);
+            radar_view_set_data(&target);
         }
         vTaskDelay(pdMS_TO_TICKS(10));
     }
@@ -193,10 +196,13 @@ void app_main(void)
     }
     
     res = exfuns_init();                                /* 为fatfs相关变量申请内存 */
+
+    /* LVGL初始化 */
+    lvgl_port_init();
     //vTaskDelay(500);                                    /* 实验信息显示延时 */
 
     //text_show_string(30, 50, 200, 16, "正点原子ESP32S3 BOX", 16, 0, RED);
-    text_show_string(30, 70, 200, 16, "音乐播放", 16, 0, RED);
+    //text_show_string(30, 70, 200, 16, "音乐播放", 16, 0, RED);
     //text_show_string(30, 90, 200, 16, "ATOM@ALIENTEK", 16, 0, RED);
 
  if (UART_Task_Handler == NULL)
@@ -215,6 +221,10 @@ void app_main(void)
 	TaskHandle_t radar_task_handle = NULL;
 	xTaskCreatePinnedToCore(
 		radar_task, "radar_task", 4096, NULL, 2, &radar_task_handle, 0);
+	
+	TaskHandle_t radar_display_task_handle = NULL;
+	xTaskCreatePinnedToCore(
+		radar_display_task, "radar_disp", 4096, NULL, 2, &radar_display_task_handle, 0);
 
     while (1)
     {		if(play_trigger == 1) // 检测到播放触发

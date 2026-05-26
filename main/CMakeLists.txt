@@ -1,9 +1,9 @@
 idf_component_register(
-    SRC_DIRS 
+    SRC_DIRS
         "."
         "APP"
         "APP/AUDIO"
-    INCLUDE_DIRS 
+    INCLUDE_DIRS
         "."
         "APP"
         "APP/AUDIO"

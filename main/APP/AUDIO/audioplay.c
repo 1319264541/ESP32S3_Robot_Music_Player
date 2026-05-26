@@ -101,9 +101,9 @@ uint16_t audio_get_tnum(uint8_t *path)
 void audio_index_show(uint16_t index, uint16_t total)
 {
     /* ��ʾ��ǰ��Ŀ������,������Ŀ�� */
-    lcd_show_num(30 + 0, 230, index, 3, 16, RED);   /* ���� */
-    lcd_show_char(30 + 24, 230, '/', 16, 0, RED);
-    lcd_show_num(30 + 32, 230, total, 3, 16, RED);  /* ����Ŀ */
+    //lcd_show_num(30 + 0, 230, index, 3, 16, RED);   /* ���� */
+    //lcd_show_char(30 + 24, 230, '/', 16, 0, RED);
+    //lcd_show_num(30 + 32, 230, total, 3, 16, RED);  /* ����Ŀ */
 }
 
 /**
@@ -122,19 +122,19 @@ void audio_msg_show(uint32_t totsec, uint32_t cursec, uint32_t bitrate)
         playtime = cursec;
         
         /* ��ʾ����ʱ�� */
-        lcd_show_xnum(30, 210, playtime / 60, 2, 16, 0X80, RED);        /* ���� */
-        lcd_show_char(30 + 16, 210, ':', 16, 0, RED);
-        lcd_show_xnum(30 + 24, 210, playtime % 60, 2, 16, 0X80, RED);   /* ���� */
-        lcd_show_char(30 + 40, 210, '/', 16, 0, RED);
+        //lcd_show_xnum(30, 210, playtime / 60, 2, 16, 0X80, RED);        /* ���� */
+        //lcd_show_char(30 + 16, 210, ':', 16, 0, RED);
+        //lcd_show_xnum(30 + 24, 210, playtime % 60, 2, 16, 0X80, RED);   /* ���� */
+        //lcd_show_char(30 + 40, 210, '/', 16, 0, RED);
         
         /* ��ʾ��ʱ�� */
-        lcd_show_xnum(30 + 48, 210, totsec / 60, 2, 16, 0X80, RED);     /* ���� */
-        lcd_show_char(30 + 64, 210, ':', 16, 0, RED);
-        lcd_show_xnum(30 + 72, 210, totsec % 60, 2, 16, 0X80, RED);     /* ���� */
+        //lcd_show_xnum(30 + 48, 210, totsec / 60, 2, 16, 0X80, RED);     /* ���� */
+        //lcd_show_char(30 + 64, 210, ':', 16, 0, RED);
+        //lcd_show_xnum(30 + 72, 210, totsec % 60, 2, 16, 0X80, RED);     /* ���� */
         
         /* ��ʾλ�� */
-        lcd_show_num(30 + 110, 210, bitrate / 1000, 4, 16, RED);/* ��ʾλ�� */
-        lcd_show_string(30 + 110 + 32 , 210, 200, 16, 16, "Kbps", RED);
+        //lcd_show_num(30 + 110, 210, bitrate / 1000, 4, 16, RED);/* ��ʾλ�� */
+        //lcd_show_string(30 + 110 + 32 , 210, 200, 16, 16, "Kbps", RED);
     }
 }
 
@@ -234,9 +234,9 @@ void audio_play(void)
 
     while (f_opendir(&wavdir, "0:/MUSIC"))                      /* �������ļ��� */
     {
-        text_show_string(30, 190, 240, 16, "MUSIC�ļ��д���!", 16, 0, BLUE);
+        //text_show_string(30, 190, 240, 16, "MUSIC�ļ��д���!", 16, 0, BLUE);
         vTaskDelay(200);
-        lcd_fill(30, 190, 240, 206, WHITE);                     /* �����ʾ */
+        //lcd_fill(30, 190, 240, 206, WHITE);                     /* �����ʾ */
         vTaskDelay(200);
     }
 
@@ -244,9 +244,9 @@ void audio_play(void)
     
     while (totwavnum == 0)                                      /* �����ļ�����Ϊ0 */
     {
-        text_show_string(30, 190, 240, 16, "û�������ļ�!", 16, 0, BLUE);
+        //text_show_string(30, 190, 240, 16, "û�������ļ�!", 16, 0, BLUE);
         vTaskDelay(200);
-        lcd_fill(30, 190, 240, 146, WHITE);                     /* �����ʾ */
+        //lcd_fill(30, 190, 240, 146, WHITE);                     /* �����ʾ */
         vTaskDelay(200);
     }
     
@@ -256,9 +256,9 @@ void audio_play(void)
     
     while (!wavfileinfo || !pname || !wavoffsettbl)             /* �ڴ������� */
     {
-        text_show_string(30, 190, 240, 16, "�ڴ����ʧ��!", 16, 0, BLUE);
+        //text_show_string(30, 190, 240, 16, "�ڴ����ʧ��!", 16, 0, BLUE);
         vTaskDelay(200);
-        lcd_fill(30, 190, 240, 146, WHITE);               /* �����ʾ */
+        //lcd_fill(30, 190, 240, 146, WHITE);               /* �����ʾ */
         vTaskDelay(200);
     }
     
@@ -305,9 +305,9 @@ void audio_play(void)
         
         strcpy((char *)pname, "0:/MUSIC/");                     /* ����·��(Ŀ¼) */
         strcat((char *)pname, (const char *)wavfileinfo->fname);/* ���ļ������ں��� */
-        lcd_fill(30, 190, lcd_dev.width, lcd_dev.height, WHITE); /* ���֮ǰ����ʾ */
-        audio_index_show(curindex + 1, totwavnum);
-        text_show_string(30, 190, lcd_dev.width - 60, 16, (char *)wavfileinfo->fname, 16, 0, BLUE);   /* ��ʾ�������� */
+        //lcd_fill(30, 190, lcd_dev.width, lcd_dev.height, WHITE); /* ���֮ǰ����ʾ */
+        //audio_index_show(curindex + 1, totwavnum);
+        //text_show_string(30, 190, lcd_dev.width - 60, 16, (char *)wavfileinfo->fname, 16, 0, BLUE);   /* ��ʾ�������� */
         
 		key = audio_play_song(pname);                           /* ���������Ƶ�ļ� */
 
