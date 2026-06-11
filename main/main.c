@@ -32,7 +32,7 @@
 #include "spi_sd.h"
 #include "text.h"
 #include "exfuns.h"
-#include "audioplay.h"
+// #include "audioplay.h"  // 音乐播放已注释
 #include "myi2s.h"
 #include "es8311.h"
 #include "driver/uart.h"
@@ -40,6 +40,7 @@
 #include "radar.h"
 #include "lvgl_port.h"
 #include "radar_view.h"
+#include "kaomoji_view.h"
 #include "esp_log.h"
 
 
@@ -59,6 +60,10 @@ static uint16_t g_track_dist = 0;
 static uint8_t  g_track_conf = 0;
 static uint8_t  g_track_has  = 0;
 
+/* 显示模式: 0=雷达(L), 1=颜文字(E) */
+static uint8_t  g_display_mode = 1;  /* 默认颜文字模式 */
+static uint8_t  g_kaomoji_sel  = 0;    /* 当前颜文字索引 0/1/2 */
+
 
 /**
  * @brief 串口指令解析任务（独立运行，上电仅启动此任务）
@@ -71,6 +76,7 @@ void uart_cmd_task(void *pvParameters)
     uint32_t last_send_ms = 0;
 
     pvParameters = pvParameters; // 消除未使用警告
+    static const char *UTAG = "uart_cmd";
     while (1)
     {
         // 非阻塞读取串口数据
@@ -82,24 +88,67 @@ void uart_cmd_task(void *pvParameters)
             // 解析串口指令
             switch (rx_buf[0])
             {
-                case 'P': // 触发播放（仅设置标志，不直接调用播放函数）
+                /* ---- 音乐播放指令已注释 ----
+                case 'P':
                     play_trigger = 1;
-					pause_config1 = 2;
+                    pause_config1 = 2;
                     break;
-
-                case 'O': // 暂停/播放切换
-					// play_trigger = 1;
+                case 'O':
                     pause_config1 = 1;
                     break;
-
-                case '+': // 下一首
-                    music_key1 = 2; // 对应原有KEY0_PRES（下一首）
-                    break;			
-                
-                case '-': // 上一首
-                    music_key1 = 3; // 对应原有KEY1_PRES（上一首）
+                case '+':
+                    music_key1 = 2;
                     break;
-                
+                case '-':
+                    music_key1 = 3;
+                    break;
+                ---- */
+
+                case 'L':
+                case 'l': // 雷达模式：开启雷达+LVGL显示
+                    ESP_LOGI(UTAG, "-> Radar mode");
+                    g_display_mode = 0;
+                    radar_set_mode(1);       /* 多目标模式 */
+                    radar_end_config();      /* 退出配置，恢复数据流 */
+                    radar_view_show();
+                    kaomoji_view_hide();
+                    break;
+
+                case 'E':
+                case 'e': // 颜文字模式：关闭雷达，显示颜文字
+                    ESP_LOGI(UTAG, "-> Kaomoji mode");
+                    g_display_mode = 1;
+                    radar_enable_config();  /* 雷达进配置模式，停数据流、降发热 */
+                    g_kaomoji_sel = 0;
+                    kaomoji_view_set(0);
+                    radar_view_hide();
+                    kaomoji_view_show();
+                    break;
+
+                case '1': // 颜文字1
+                    ESP_LOGI(UTAG, "-> Kaomoji 1");
+                    if (g_display_mode == 1) {
+                        g_kaomoji_sel = 0;
+                        kaomoji_view_set(0);
+                    }
+                    break;
+
+                case '2': // 颜文字2
+                    ESP_LOGI(UTAG, "-> Kaomoji 2");
+                    if (g_display_mode == 1) {
+                        g_kaomoji_sel = 1;
+                        kaomoji_view_set(1);
+                    }
+                    break;
+
+                case '3': // 颜文字3
+                    ESP_LOGI(UTAG, "-> Kaomoji 3");
+                    if (g_display_mode == 1) {
+                        g_kaomoji_sel = 2;
+                        kaomoji_view_set(2);
+                    }
+                    break;
+
                 default:
                     break;
             }
@@ -114,9 +163,9 @@ void uart_cmd_task(void *pvParameters)
         // 任务延时（降低CPU占用）
         vTaskDelay(pdMS_TO_TICKS(10));
 
-        /* 5Hz radar tracker upload */
+        /* 5Hz radar tracker upload (仅雷达模式) */
         uint32_t now = pdTICKS_TO_MS(xTaskGetTickCount());
-        if (g_track_has && (now - last_send_ms >= 100)) {
+        if (g_display_mode == 0 && g_track_has && (now - last_send_ms >= 100)) {
             char buf[64];
             int n = snprintf(buf, sizeof(buf),
                 "T,%d,%u\r\n",
@@ -143,6 +192,11 @@ void radar_task(void *pvParameters)
     radar_tracker_init(&tracker);
     while (1)
     {
+        /* 颜文字模式下跳过雷达读取，减少雷达模块发热 */
+        if (g_display_mode != 0) {
+            vTaskDelay(pdMS_TO_TICKS(100));
+            continue;
+        }
         if (radar_read_target(&target, 50))
         {
             radar_tracker_update(&tracker, &target, &trk_out);
@@ -151,11 +205,11 @@ void radar_task(void *pvParameters)
                 g_track_dist = trk_out.dist;
                 g_track_conf = trk_out.confidence;
                 g_track_has  = 1;
-                ESP_LOGI("TRACKER", "ang=%d dist=%u conf=%u%% lost=%u",
+                ESP_LOGD("TRACKER", "ang=%d dist=%u conf=%u%% lost=%u",
                          trk_out.angle, trk_out.dist,
                          trk_out.confidence, trk_out.consecutive_fail);
             } else {
-                ESP_LOGI("TRACKER", "no target (locked=%u conf=%u%%)",
+                ESP_LOGD("TRACKER", "no target (locked=%u conf=%u%%)",
                          tracker.locked, tracker.confidence);
             }
             radar_view_set_data(&target);
@@ -191,7 +245,7 @@ void app_main(void)
 	radar_init(256000);
 	radar_enable_config();
 	radar_set_mode(1);
-	radar_end_config();                                      /* 初始化串口 */
+	// radar_end_config();  /* 默认emoji模式，不发雷达数据，等L指令再开启 */
 	
 	myi2s_init();
 
@@ -249,20 +303,28 @@ void app_main(void)
 
 	TaskHandle_t radar_task_handle = NULL;
 	xTaskCreatePinnedToCore(
-		radar_task, "radar_task", 4096, NULL, 2, &radar_task_handle, 0);
+		radar_task, "radar_task", 6144, NULL, 2, &radar_task_handle, 0);
 	
 	TaskHandle_t radar_display_task_handle = NULL;
 	xTaskCreatePinnedToCore(
 		radar_display_task, "radar_disp", 4096, NULL, 2, &radar_display_task_handle, 0);
 
+    /* 颜文字显示任务（与雷达显示任务模式互斥） */
+    TaskHandle_t kaomoji_task_handle = NULL;
+    xTaskCreatePinnedToCore(
+        kaomoji_display_task, "kaomoji_disp", 8192, NULL, 2,
+        &kaomoji_task_handle, 0);
+
     while (1)
-    {		if(play_trigger == 1) // 检测到播放触发
-		{
-			play_trigger = 0; // 重置触发标志
-			audio_play();      // 调用播放函数（阻塞式）
-		}
-		
-		vTaskDelay(pdMS_TO_TICKS(100)); // 主循环延时，降低CPU占用
+    {
+        /* ---- 音乐播放已注释 ----
+        if (play_trigger == 1) {
+            play_trigger = 0;
+            audio_play();
+        }
+        ---- */
+
+        vTaskDelay(pdMS_TO_TICKS(1000)); /* 主循环空闲 */
     }
 }
  

@@ -26,6 +26,18 @@ void radar_view_update(radar_target_t *target);
 void radar_view_set_data(radar_target_t *target);
 
 /**
+ * @brief  显示雷达视图（面板、圆点、标签等）。
+ *         需在radar_view_init()之后调用。线程安全。
+ */
+void radar_view_show(void);
+
+/**
+ * @brief  隐藏雷达视图所有元素。
+ *         线程安全。
+ */
+void radar_view_hide(void);
+
+/**
  * @brief  FreeRTOS任务，周期性读取共享雷达数据并更新LVGL显示
  *         （约20Hz）。绑定CPU0，优先级2。
  */

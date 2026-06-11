@@ -20,6 +20,7 @@
 #define NUM_DOTS     3
 
 /* ---- 预创建的LVGL对象 ---- */
+static lv_obj_t *panel;
 static lv_obj_t *dots[NUM_DOTS];
 static lv_obj_t *label_title;
 static lv_obj_t *label_info;
@@ -151,7 +152,7 @@ void radar_view_init(void)
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
 
     /* ---- 面板：全屏，在DRAW_POST中绘制雷达网格 ---- */
-    lv_obj_t *panel = lv_obj_create(scr);
+    panel = lv_obj_create(scr);
     ESP_LOGI("radar_view", "panel created");
     lv_obj_set_size(panel, 320, 240);
     lv_obj_set_pos(panel, 0, 0);
@@ -160,6 +161,7 @@ void radar_view_init(void)
     lv_obj_set_style_border_width(panel, 0, 0);
     lv_obj_set_style_pad_all(panel, 0, 0);
     lv_obj_add_event_cb(panel, panel_draw_cb, LV_EVENT_DRAW_POST, NULL);
+    lv_obj_add_flag(panel, LV_OBJ_FLAG_HIDDEN);  /* 默认隐藏，颜文字模式优先 */
 
     /* ---- 标题 ---- */
     label_title = lv_label_create(scr);
@@ -167,6 +169,7 @@ void radar_view_init(void)
     lv_obj_set_style_text_color(label_title, dkgrey(), 0);
     lv_obj_set_pos(label_title, 8, 4);
     lv_obj_set_width(label_title, LV_SIZE_CONTENT);
+    lv_obj_add_flag(label_title, LV_OBJ_FLAG_HIDDEN);  /* 默认隐藏 */
     ESP_LOGI("radar_view", "title created");
 
     /* ---- 信息（目标数量） ---- */
@@ -175,6 +178,7 @@ void radar_view_init(void)
     lv_obj_set_style_text_color(label_info, dkgrey(), 0);
     lv_obj_set_pos(label_info, 240, 4);
     lv_obj_set_width(label_info, LV_SIZE_CONTENT);
+    lv_obj_add_flag(label_info, LV_OBJ_FLAG_HIDDEN);  /* 默认隐藏 */
 
     /* ---- 3个目标圆点（初始隐藏） ---- */
     for (int i = 0; i < NUM_DOTS; i++) {
@@ -228,12 +232,41 @@ void radar_view_update(radar_target_t *target)
     lvgl_port_unlock();
 }
 
+void radar_view_show(void)
+{
+    if (!g_view_ready) return;
+    lvgl_port_lock();
+    if (panel)       lv_obj_clear_flag(panel,       LV_OBJ_FLAG_HIDDEN);
+    if (label_title) lv_obj_clear_flag(label_title, LV_OBJ_FLAG_HIDDEN);
+    if (label_info)  lv_obj_clear_flag(label_info,  LV_OBJ_FLAG_HIDDEN);
+    for (int i = 0; i < NUM_DOTS; i++) {
+        if (dots[i]) lv_obj_clear_flag(dots[i], LV_OBJ_FLAG_HIDDEN);
+    }
+    lvgl_port_unlock();
+    ESP_LOGI("radar_view", "shown");
+}
+
+void radar_view_hide(void)
+{
+    if (!g_view_ready) return;
+    lvgl_port_lock();
+    if (panel)       lv_obj_add_flag(panel,       LV_OBJ_FLAG_HIDDEN);
+    if (label_title) lv_obj_add_flag(label_title, LV_OBJ_FLAG_HIDDEN);
+    if (label_info)  lv_obj_add_flag(label_info,  LV_OBJ_FLAG_HIDDEN);
+    for (int i = 0; i < NUM_DOTS; i++) {
+        if (dots[i]) lv_obj_add_flag(dots[i], LV_OBJ_FLAG_HIDDEN);
+    }
+    lvgl_port_unlock();
+    ESP_LOGI("radar_view", "hidden");
+}
+
 /* ================================================================== */
 /*  共享数据 + 显示任务                                                 */
 /* ================================================================== */
 
 static radar_target_t g_radar_data;
 static SemaphoreHandle_t g_radar_mutex;
+static uint32_t g_data_version = 0;
 
 void radar_view_set_data(radar_target_t *target)
 {
@@ -241,6 +274,7 @@ void radar_view_set_data(radar_target_t *target)
     xSemaphoreTake(g_radar_mutex, portMAX_DELAY);
     if (target) memcpy(&g_radar_data, target, sizeof(radar_target_t));
     else        g_radar_data.detected = 0;
+    g_data_version++;
     xSemaphoreGive(g_radar_mutex);
 }
 
@@ -251,14 +285,21 @@ void radar_display_task(void *pvParameters)
     /* 等CPU1上的radar_view_init完成，否则dots[]还是NULL会崩溃 */
     while (!g_view_ready) vTaskDelay(pdMS_TO_TICKS(10));
 
+    uint32_t last_version = 0;
     while (1) {
         radar_target_t local;
+        uint32_t ver;
         if (g_radar_mutex
-            && xSemaphoreTake(g_radar_mutex, pdMS_TO_TICKS(100))) {
+            && xSemaphoreTake(g_radar_mutex, pdMS_TO_TICKS(20))) {
+            ver = g_data_version;
             memcpy(&local, &g_radar_data, sizeof(radar_target_t));
             xSemaphoreGive(g_radar_mutex);
-            radar_view_update(&local);
+            /* 只有数据更新了才刷新屏幕，避免无效渲染积压 */
+            if (ver != last_version) {
+                radar_view_update(&local);
+                last_version = ver;
+            }
         }
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(15));
     }
 }

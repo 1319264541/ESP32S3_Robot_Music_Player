@@ -1,8 +1,11 @@
 #include "lvgl_port.h"
 #include "lcd.h"
 #include "radar_view.h"
+#include "kaomoji_view.h"
 #include "esp_timer.h"
 #include "esp_log.h"
+#include <stdio.h>
+#include "ff.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -42,16 +45,76 @@ static void lvgl_task(void *arg)
     /* 在LVGL上下文里创建雷达界面，避免跨任务竞态 */
     ESP_LOGI(TAG, "calling radar_view_init...");
     radar_view_init();
-    ESP_LOGI(TAG, "radar_view_init done, entering loop");
+    kaomoji_view_init();
+    ESP_LOGI(TAG, "radar_view_init + kaomoji_view_init done, entering loop");
 
-    const TickType_t period = pdMS_TO_TICKS(5);
+    const TickType_t period = pdMS_TO_TICKS(10);
     while (1) {
-        if (xSemaphoreTake(lvgl_mutex, pdMS_TO_TICKS(10))) {
-            lv_timer_handler();
-            xSemaphoreGive(lvgl_mutex);
-        }
+        lv_timer_handler();
         vTaskDelay(period);
     }
+}
+
+/* ---- LVGL文件系统驱动（FatFS→LVGL 'S'盘） ---- */
+
+static void *fs_open(lv_fs_drv_t *drv, const char *path, lv_fs_mode_t mode)
+{
+    FIL *fp = malloc(sizeof(FIL));
+    if (!fp) return NULL;
+    char fatfs_path[256];
+    snprintf(fatfs_path, sizeof(fatfs_path), "0:%s", path);
+    BYTE fm = (mode & LV_FS_MODE_WR) ? FA_READ | FA_WRITE | FA_CREATE_ALWAYS : FA_READ;
+    FRESULT fr = f_open(fp, fatfs_path, fm);
+    ESP_LOGI("lv_fs", "open %s -> %d", fatfs_path, fr);
+    if (fr == FR_OK) return fp;
+    free(fp);
+    return NULL;
+}
+
+static lv_fs_res_t fs_close(lv_fs_drv_t *drv, void *fp)
+{
+    ESP_LOGI("lv_fs", "close");
+    if (fp) { f_close((FIL *)fp); free(fp); }
+    return LV_FS_RES_OK;
+}
+
+static lv_fs_res_t fs_read(lv_fs_drv_t *drv, void *fp, void *buf, uint32_t btr, uint32_t *br)
+{
+    UINT r = 0;
+    FRESULT res = f_read((FIL *)fp, buf, btr, &r);
+    if (br) *br = r;
+    ESP_LOGI("lv_fs", "read %lu -> %d (got %u)", btr, res, r);
+    return (res == FR_OK) ? LV_FS_RES_OK : LV_FS_RES_FS_ERR;
+}
+
+static lv_fs_res_t fs_seek(lv_fs_drv_t *drv, void *fp, uint32_t pos, lv_fs_whence_t whence)
+{
+    FRESULT res;
+    if (whence == LV_FS_SEEK_SET) res = f_lseek((FIL *)fp, pos);
+    else if (whence == LV_FS_SEEK_CUR) res = f_lseek((FIL *)fp, f_tell((FIL *)fp) + pos);
+    else if (whence == LV_FS_SEEK_END) res = f_lseek((FIL *)fp, f_size((FIL *)fp) + pos);
+    else return LV_FS_RES_FS_ERR;
+    return (res == FR_OK) ? LV_FS_RES_OK : LV_FS_RES_FS_ERR;
+}
+
+static lv_fs_res_t fs_tell(lv_fs_drv_t *drv, void *fp, uint32_t *pos)
+{
+    *pos = f_tell((FIL *)fp);
+    return LV_FS_RES_OK;
+}
+
+static void fs_drv_register_sd(void)
+{
+    static lv_fs_drv_t fs_drv;
+    lv_fs_drv_init(&fs_drv);
+    fs_drv.letter = 'S';
+    fs_drv.open_cb = fs_open;
+    fs_drv.close_cb = fs_close;
+    fs_drv.read_cb = fs_read;
+    fs_drv.write_cb = NULL;
+    fs_drv.seek_cb = fs_seek;
+    fs_drv.tell_cb = fs_tell;
+    lv_fs_drv_register(&fs_drv);
 }
 
 /* ---- 公共接口 ---- */
@@ -92,8 +155,11 @@ esp_err_t lvgl_port_init(void)
     esp_timer_create(&tick_args, &tick_timer);
     esp_timer_start_periodic(tick_timer, 1000);
 
+    /* 注册SD卡文件系统驱动（供lv_gif等使用 'S:' 路径） */
+    fs_drv_register_sd();
+
     /* 处理任务绑定CPU1，优先级2，独立于雷达/串口任务 */
-    xTaskCreatePinnedToCore(lvgl_task, "lvgl", 4096, NULL, 2, NULL, 1);
+    xTaskCreatePinnedToCore(lvgl_task, "lvgl", 8192, NULL, 2, NULL, 1);
 
     ESP_LOGI(TAG, "初始化完成");
     return ESP_OK;
