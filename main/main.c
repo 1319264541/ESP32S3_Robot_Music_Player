@@ -200,17 +200,23 @@ void radar_task(void *pvParameters)
         if (radar_read_target(&target, 50))
         {
             radar_tracker_update(&tracker, &target, &trk_out);
+            static uint8_t _lc = 0;
             if (trk_out.active) {
                 g_track_ang  = trk_out.angle;
                 g_track_dist = trk_out.dist;
                 g_track_conf = trk_out.confidence;
                 g_track_has  = 1;
-                ESP_LOGD("TRACKER", "ang=%d dist=%u conf=%u%% lost=%u",
-                         trk_out.angle, trk_out.dist,
-                         trk_out.confidence, trk_out.consecutive_fail);
+                if (++_lc >= 5) {
+                    ESP_LOGI("TRACKER", "ang=%d dist=%u conf=%u%%",
+                             trk_out.angle, trk_out.dist, trk_out.confidence);
+                    _lc = 0;
+                }
             } else {
-                ESP_LOGD("TRACKER", "no target (locked=%u conf=%u%%)",
-                         tracker.locked, tracker.confidence);
+                if (++_lc >= 5) {
+                    ESP_LOGI("TRACKER", "no target (locked=%u conf=%u%%)",
+                             tracker.locked, tracker.confidence);
+                    _lc = 0;
+                }
             }
             radar_view_set_data(&target);
         }
@@ -303,7 +309,7 @@ void app_main(void)
 
 	TaskHandle_t radar_task_handle = NULL;
 	xTaskCreatePinnedToCore(
-		radar_task, "radar_task", 6144, NULL, 2, &radar_task_handle, 0);
+		radar_task, "radar_task", 6144, NULL, 5, &radar_task_handle, 0);
 	
 	TaskHandle_t radar_display_task_handle = NULL;
 	xTaskCreatePinnedToCore(

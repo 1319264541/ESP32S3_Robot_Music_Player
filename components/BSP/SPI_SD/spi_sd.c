@@ -57,7 +57,7 @@
      /* SD卡参数配置 */
      sdmmc_host_t host = SDSPI_HOST_DEFAULT();
 
-	//  host.max_freq_khz = 100;    // ✅ 强制低速初始化（唯一要加的代码）
+	host.max_freq_khz = 4000;    // SD卡SPI时钟降至4MHz，避免sdmmc 0x107超时错误
 
      /* SD卡引脚配置 */
      sdspi_device_config_t slot_config = {0};

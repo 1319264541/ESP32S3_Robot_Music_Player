@@ -48,10 +48,13 @@ static void lvgl_task(void *arg)
     kaomoji_view_init();
     ESP_LOGI(TAG, "radar_view_init + kaomoji_view_init done, entering loop");
 
-    const TickType_t period = pdMS_TO_TICKS(10);
     while (1) {
-        lv_timer_handler();
-        vTaskDelay(period);
+        lvgl_port_lock();
+        uint32_t ms = lv_timer_handler();
+        lvgl_port_unlock();
+        if (ms > 10) ms = 10;
+        if (ms < 1)  ms = 1;
+        vTaskDelay(pdMS_TO_TICKS(ms));
     }
 }
 
@@ -120,7 +123,7 @@ static void fs_drv_register_sd(void)
 /* ---- 公共接口 ---- */
 esp_err_t lvgl_port_init(void)
 {
-    lvgl_mutex = xSemaphoreCreateMutex();
+    lvgl_mutex = xSemaphoreCreateRecursiveMutex();
     if (!lvgl_mutex) {
         ESP_LOGE(TAG, "LVGL互斥锁创建失败");
         return ESP_ERR_NO_MEM;
@@ -167,10 +170,10 @@ esp_err_t lvgl_port_init(void)
 
 void lvgl_port_lock(void)
 {
-    if (lvgl_mutex) xSemaphoreTake(lvgl_mutex, portMAX_DELAY);
+    if (lvgl_mutex) xSemaphoreTakeRecursive(lvgl_mutex, portMAX_DELAY);
 }
 
 void lvgl_port_unlock(void)
 {
-    if (lvgl_mutex) xSemaphoreGive(lvgl_mutex);
+    if (lvgl_mutex) xSemaphoreGiveRecursive(lvgl_mutex);
 }

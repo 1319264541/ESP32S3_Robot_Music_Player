@@ -60,7 +60,7 @@ static void buf_hline(uint16_t x, uint16_t y, uint16_t len, uint16_t c)
 /* ---- 显示缓冲到LVGL ---- */
 static void show_frame(void)
 {
-    /* 仅更新图像源，不重新设置尺寸/位置/缩放（首次由load_gif设置） */
+    if (!img_obj || !img_buf) return;
     lvgl_port_lock();
     lv_img_set_src(img_obj, &img_dsc);
     lvgl_port_unlock();
@@ -98,8 +98,14 @@ static void gif_close(void)
 {
     if (gif_timer) { lv_timer_del(gif_timer); gif_timer = NULL; }
     if (gif_open) { f_close(&gif_file); gif_open = false; }
-    if (img_buf) { free(img_buf); img_buf = NULL; }
-    /* 恢复pic_phy为LCD默认 */
+    /* 清图像源+释放缓冲（调用者已持lvgl_port_lock） */
+    if (img_buf && img_obj) {
+        lv_img_set_src(img_obj, NULL);
+    }
+    if (img_buf) {
+        free(img_buf);
+        img_buf = NULL;
+    }
     memcpy(&pic_phy, &orig_phy, sizeof(pic_phy));
 }
 
@@ -111,18 +117,31 @@ static void load_gif(uint8_t idx)
     snprintf(path, sizeof(path), "0:/emoji/%s", FILE_NAMES[idx]);
     ESP_LOGI(TAG, "load %s", path);
 
+    lvgl_port_lock();
     gif_close();
 
     /* 打开文件 */
-    if (f_open(&gif_file, path, FA_READ)) { ESP_LOGE(TAG, "open fail"); return; }
+    if (f_open(&gif_file, path, FA_READ)) { ESP_LOGE(TAG, "open fail"); goto unlock_out; }
     gif_open = true;
 
     /* 获取信息 */
-    f_lseek(&gif_file, 6);
+    /* 校验GIF头 */
+    {
+        uint8_t hdr[6]; UINT br;
+        f_lseek(&gif_file, 0);
+        f_read(&gif_file, hdr, 6, &br);
+        if (hdr[0]!='G'||hdr[1]!='I'||hdr[2]!='F'||hdr[3]!='8'
+            ||(hdr[4]!='7'&&hdr[4]!='9')||hdr[5]!='a') {
+            ESP_LOGE(TAG, "not a GIF: %02X%02X%02X%02X%02X%02X",
+                     hdr[0],hdr[1],hdr[2],hdr[3],hdr[4],hdr[5]);
+            gif_close();
+            goto unlock_out;
+        }
+    }
     memset(&gif_state, 0, sizeof(gif_state));
     memset(&gif_lzw, 0, sizeof(gif_lzw));
     gif_state.lzw = &gif_lzw;
-    if (gif_getinfo(&gif_file, &gif_state)) { ESP_LOGE(TAG, "getinfo fail"); gif_close(); return; }
+    if (gif_getinfo(&gif_file, &gif_state)) { ESP_LOGE(TAG, "getinfo fail"); gif_close(); goto unlock_out; }
     buf_w = gif_state.gifLSD.width;
     buf_h = gif_state.gifLSD.height;
     ESP_LOGI(TAG, "gif %ux%u", buf_w, buf_h);
@@ -134,7 +153,7 @@ static void load_gif(uint8_t idx)
     if (img_buf) { free(img_buf); img_buf = NULL; }
     size_t need = buf_w * buf_h * 2;
     img_buf = malloc(need);
-    if (!img_buf) { ESP_LOGE(TAG, "buf fail %u", (unsigned)need); gif_close(); return; }
+    if (!img_buf) { ESP_LOGE(TAG, "buf fail %u", (unsigned)need); gif_close(); goto unlock_out; }
     ESP_LOGI(TAG, "buf OK");
 
     /* 拦截回调 */
@@ -153,7 +172,6 @@ static void load_gif(uint8_t idx)
     img_dsc.header.h  = buf_h;
     img_dsc.data_size = buf_w * buf_h * 2;
     img_dsc.data      = (const uint8_t *)img_buf;
-    lvgl_port_lock();
     lv_img_set_src(img_obj, &img_dsc);
     uint16_t zw = (uint16_t)((uint32_t)320 * 256 / buf_w);
     uint16_t zh = (uint16_t)((uint32_t)240 * 256 / buf_h);
@@ -162,10 +180,10 @@ static void load_gif(uint8_t idx)
     lv_img_set_zoom(img_obj, zoom);
     lv_obj_center(img_obj);
     lv_obj_clear_flag(img_obj, LV_OBJ_FLAG_HIDDEN);
+
     lvgl_port_unlock();
 
     /* 不恢复回调——后续帧刷新需要继续走缓冲 */
-    /* memcpy(&pic_phy, &orig_phy, sizeof(pic_phy)); */
 
     /* 启动帧刷新定时器 */
     uint32_t d = gif_state.delay * 10;
@@ -174,6 +192,10 @@ static void load_gif(uint8_t idx)
     gif_timer = lv_timer_create(gif_next_frame, d, NULL);
 
     ESP_LOGI(TAG, "anim start delay=%lu", d);
+    return;
+
+unlock_out:
+    lvgl_port_unlock();
 }
 
 /* ================================================================== */
@@ -201,10 +223,14 @@ void kaomoji_view_show(void)
 
 void kaomoji_view_hide(void)
 {
-    gif_close();
-    if (!img_obj) return;
     lvgl_port_lock();
-    lv_obj_add_flag(img_obj, LV_OBJ_FLAG_HIDDEN);
+    gif_close();
+    /* 隐藏+清图像源，让雷达面板完整覆盖（不删对象，避免跨核渲染冲突） */
+    if (img_obj) {
+        lv_img_set_src(img_obj, NULL);
+        lv_obj_add_flag(img_obj, LV_OBJ_FLAG_HIDDEN);
+    }
+    lv_obj_invalidate(lv_scr_act());
     lvgl_port_unlock();
 }
 
