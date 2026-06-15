@@ -170,15 +170,20 @@ esp_err_t decode_jpeg(pixel_jpeg ***pixels, char * file, int screenWidth, int sc
     jpeg_dev.screenHeight = screenHeight;
 
     f_jpeg = (FIL *)malloc(sizeof(FIL));    /* 申请内存 */
+    if (f_jpeg == NULL) {
+        ESP_LOGE(__FUNCTION__, "malloc FIL failed");
+        ret = ESP_ERR_NO_MEM;
+        goto err;
+    }
 
-    f_open(f_jpeg, (const TCHAR *)file, FA_READ); /* 打开文件 */
-
-    if (f_jpeg == NULL)
-    {
-        ESP_LOGW(__FUNCTION__, "Image file not found [%s]", file);
+    if (f_open(f_jpeg, (const TCHAR *)file, FA_READ) != FR_OK) {
+        ESP_LOGE(__FUNCTION__, "Cannot open [%s]", file);
+        free(f_jpeg);
+        f_jpeg = NULL;
         ret = ESP_ERR_NOT_FOUND;
         goto err;
     }
+    ESP_LOGI(__FUNCTION__, "Opened [%s] size=%lu", file, (unsigned long)f_size(f_jpeg));
 
     /* 准备并解码jpeg */
     res = jd_prepare(&jpeg_dev, infunc, work, jd_work_size, f_jpeg);
@@ -213,11 +218,12 @@ esp_err_t decode_jpeg(pixel_jpeg ***pixels, char * file, int screenWidth, int sc
     /* 全部完成！释放内存 */
     free(work);
     f_close(f_jpeg);
+    free(f_jpeg);
     return ret;
 
     /* 出现解码错误的话，执行以下代码 */
     err:
-    f_close(f_jpeg);
+    if (f_jpeg) { f_close(f_jpeg); free(f_jpeg); }
 
     if (*pixels != NULL)
     {

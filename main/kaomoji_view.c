@@ -4,6 +4,7 @@
 #include "esp_heap_caps.h"
 #include "piclib.h"
 #include "gif.h"
+#include "jpeg.h"
 #include "lcd.h"
 #include "ff.h"
 #include <stdio.h>
@@ -14,7 +15,8 @@
 #include "freertos/semphr.h"
 
 static const char *TAG = "emoji";
-static const char *FILE_NAMES[] = { "1.gif", "2.gif", "3.gif" };
+static const char *FILE_NAMES[] = { "1.gif", "2.gif", "3.gif", "4.jpeg", "5.jpeg", "6.jpeg", "7.jpeg", "8.jpeg" };
+#define NUM_FILES (sizeof(FILE_NAMES)/sizeof(FILE_NAMES[0]))
 
 static lv_obj_t    *img_obj = NULL;
 static lv_img_dsc_t img_dsc;
@@ -109,12 +111,76 @@ static void gif_close(void)
     memcpy(&pic_phy, &orig_phy, sizeof(pic_phy));
 }
 
+/* ---- 加载JPEG ---- */
+static void load_jpeg(const char *name)
+{
+    char path[64];
+    snprintf(path, sizeof(path), "0:/emoji/%s", name);
+    ESP_LOGI(TAG, "jpeg load %s", path);
+
+    lvgl_port_lock();
+    gif_close();  /* 停止之前的GIF动画 */
+
+    pixel_jpeg **pixels = NULL;
+    int jpg_w = 0, jpg_h = 0;
+    esp_err_t err = decode_jpeg(&pixels, path, 320, 240, &jpg_w, &jpg_h);
+    if (err != ESP_OK || !pixels) {
+        ESP_LOGE(TAG, "jpeg decode fail: %d", err);
+        /* decode_jpeg already freed pixels on failure, no need to release again */
+        goto unlock_out;
+    }
+    ESP_LOGI(TAG, "jpeg %dx%d", jpg_w, jpg_h);
+
+    buf_w = (uint16_t)jpg_w;
+    buf_h = (uint16_t)jpg_h;
+    if (img_buf) { free(img_buf); img_buf = NULL; }
+    size_t need = buf_w * buf_h * 2;
+    img_buf = malloc(need);
+    if (!img_buf) {
+        ESP_LOGE(TAG, "jpeg buf fail %u", (unsigned)need);
+        release_image(&pixels, 320, 240);
+        goto unlock_out;
+    }
+
+    /* 从2D数组拷贝到平铺缓冲 */
+    for (int y = 0; y < jpg_h; y++) {
+        memcpy(&img_buf[y * buf_w], pixels[y], (size_t)jpg_w * 2);
+    }
+    release_image(&pixels, 320, 240);
+
+    img_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
+    img_dsc.header.w  = buf_w;
+    img_dsc.header.h  = buf_h;
+    img_dsc.data_size = need;
+    img_dsc.data      = (const uint8_t *)img_buf;
+    lv_img_set_src(img_obj, &img_dsc);
+
+    uint16_t zw = (uint16_t)((uint32_t)320 * 256 / buf_w);
+    uint16_t zh = (uint16_t)((uint32_t)240 * 256 / buf_h);
+    uint16_t zoom = (zw > zh) ? zw : zh;
+    if (zoom < 256) zoom = 256;
+    lv_img_set_zoom(img_obj, zoom);
+    lv_obj_center(img_obj);
+    lv_obj_clear_flag(img_obj, LV_OBJ_FLAG_HIDDEN);
+
+    lvgl_port_unlock();
+    ESP_LOGI(TAG, "jpeg display OK");
+    return;
+
+unlock_out:
+    lvgl_port_unlock();
+}
+
 /* ---- 加载GIF ---- */
 static void load_gif(uint8_t idx)
 {
-    if (idx > 2) idx = 0;
+    if (idx >= NUM_FILES) idx = 0;
+    const char *name = FILE_NAMES[idx];
+    const char *ext = strrchr(name, '.');
+    int is_jpg = ext && (ext[1]=='j'||ext[1]=='J') && (ext[2]=='p'||ext[2]=='P');
+    if (is_jpg) { load_jpeg(name); return; }
     char path[64];
-    snprintf(path, sizeof(path), "0:/emoji/%s", FILE_NAMES[idx]);
+    snprintf(path, sizeof(path), "0:/emoji/%s", name);
     ESP_LOGI(TAG, "load %s", path);
 
     lvgl_port_lock();
@@ -236,7 +302,7 @@ void kaomoji_view_hide(void)
 
 void kaomoji_view_set(uint8_t idx)
 {
-    if (idx > 2) idx = 0;
+    if (idx >= NUM_FILES) idx = 0;
     if (!g_mutex) return;
     xSemaphoreTake(g_mutex, portMAX_DELAY);
     g_idx = idx;

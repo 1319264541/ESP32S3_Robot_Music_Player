@@ -149,6 +149,46 @@ void uart_cmd_task(void *pvParameters)
                     }
                     break;
 
+                case '4':
+                    ESP_LOGI(UTAG, "-> Kaomoji 4");
+                    if (g_display_mode == 1) {
+                        g_kaomoji_sel = 3;
+                        kaomoji_view_set(3);
+                    }
+                    break;
+
+                case '5':
+                    ESP_LOGI(UTAG, "-> Kaomoji 5");
+                    if (g_display_mode == 1) {
+                        g_kaomoji_sel = 4;
+                        kaomoji_view_set(4);
+                    }
+                    break;
+
+                case '6':
+                    ESP_LOGI(UTAG, "-> Kaomoji 6");
+                    if (g_display_mode == 1) {
+                        g_kaomoji_sel = 5;
+                        kaomoji_view_set(5);
+                    }
+                    break;
+
+                case '7':
+                    ESP_LOGI(UTAG, "-> Kaomoji 7");
+                    if (g_display_mode == 1) {
+                        g_kaomoji_sel = 6;
+                        kaomoji_view_set(6);
+                    }
+                    break;
+
+                case '8':
+                    ESP_LOGI(UTAG, "-> Kaomoji 8");
+                    if (g_display_mode == 1) {
+                        g_kaomoji_sel = 7;
+                        kaomoji_view_set(7);
+                    }
+                    break;
+
                 default:
                     break;
             }
