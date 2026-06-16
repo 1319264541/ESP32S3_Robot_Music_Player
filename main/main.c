@@ -1,19 +1,19 @@
 /**
  ****************************************************************************************************
  * @file        main.c
- * @author      ÕýµãÔ­×ÓÍÅ¶Ó(ALIENTEK)
+ * @author      ï¿½ï¿½ï¿½ï¿½Ô­ï¿½ï¿½ï¿½Å¶ï¿½(ALIENTEK)
  * @version     V1.0
  * @date        2024-06-25
- * @brief       ÒôÀÖ²¥·ÅÆ÷ ÊµÑé
- * @license     Copyright (c) 2020-2032, ¹ãÖÝÊÐÐÇÒíµç×Ó¿Æ¼¼ÓÐÏÞ¹«Ë¾
+ * @brief       ï¿½ï¿½ï¿½Ö²ï¿½ï¿½ï¿½ï¿½ï¿½ Êµï¿½ï¿½
+ * @license     Copyright (c) 2020-2032, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¿Æ¼ï¿½ï¿½ï¿½ï¿½Þ¹ï¿½Ë¾
  ****************************************************************************************************
  * @attention
  *
- * ÊµÑéÆ½Ì¨:ÕýµãÔ­×Ó ESP32S3 BOX ¿ª·¢°å
- * ÔÚÏßÊÓÆµ:www.yuanzige.com
- * ¼¼ÊõÂÛÌ³:www.openedv.com
- * ¹«Ë¾ÍøÖ·:www.alientek.com
- * ¹ºÂòµØÖ·:openedv.taobao.com
+ * Êµï¿½ï¿½Æ½Ì¨:ï¿½ï¿½ï¿½ï¿½Ô­ï¿½ï¿½ ESP32S3 BOX ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµ:www.yuanzige.com
+ * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì³:www.openedv.com
+ * ï¿½ï¿½Ë¾ï¿½ï¿½Ö·:www.alientek.com
+ * ï¿½ï¿½ï¿½ï¿½ï¿½Ö·:openedv.taobao.com
  *
  ****************************************************************************************************
  */
@@ -32,7 +32,7 @@
 #include "spi_sd.h"
 #include "text.h"
 #include "exfuns.h"
-// #include "audioplay.h"  // ÒôÀÖ²¥·ÅÒÑ×¢ÊÍ
+// #include "audioplay.h"  // ï¿½ï¿½ï¿½Ö²ï¿½ï¿½ï¿½ï¿½ï¿½×¢ï¿½ï¿½
 #include "myi2s.h"
 #include "es8311.h"
 #include "driver/uart.h"
@@ -47,11 +47,11 @@
 #define RX_BUF_SIZE1 100
 
 
-// ´®¿Ú¿ØÖÆ±êÖ¾Î»£¨ÐÞÕýÃüÃû+Âß¼­£©
-uint8_t uart_config1 = 0;        // ´®¿ÚÖ¸Áî×Ü´¥·¢±êÖ¾£¨1=ÓÐÖ¸Áî´ý´¦Àí£©
-uint8_t pause_config1 = 0;       // ÔÝÍ£/²¥·Å´¥·¢±êÖ¾£¨1=ÐèÒªÇÐ»»×´Ì¬£©
-uint8_t music_key1 = 0;          // ÇÐ¸èÖ¸Áî±êÖ¾£¨KEY0_PRES=ÏÂÒ»Ê×£¬KEY1_PRES=ÉÏÒ»Ê×£©
-uint8_t play_trigger = 0;        // ²¥·Å´¥·¢±êÖ¾£¨1=ÐèÒª¿ªÊ¼²¥·Å£©
+// ï¿½ï¿½ï¿½Ú¿ï¿½ï¿½Æ±ï¿½Ö¾Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½+ï¿½ß¼ï¿½ï¿½ï¿½
+uint8_t uart_config1 = 0;        // ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½Ü´ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾ï¿½ï¿½1=ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+uint8_t pause_config1 = 0;       // ï¿½ï¿½Í£/ï¿½ï¿½ï¿½Å´ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾ï¿½ï¿½1=ï¿½ï¿½Òªï¿½Ð»ï¿½×´Ì¬ï¿½ï¿½
+uint8_t music_key1 = 0;          // ï¿½Ð¸ï¿½Ö¸ï¿½ï¿½ï¿½Ö¾ï¿½ï¿½KEY0_PRES=ï¿½ï¿½Ò»ï¿½×£ï¿½KEY1_PRES=ï¿½ï¿½Ò»ï¿½×£ï¿½
+uint8_t play_trigger = 0;        // ï¿½ï¿½ï¿½Å´ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾ï¿½ï¿½1=ï¿½ï¿½Òªï¿½ï¿½Ê¼ï¿½ï¿½ï¿½Å£ï¿½
 
 TaskHandle_t UART_Task_Handler;
 
@@ -60,14 +60,14 @@ static uint16_t g_track_dist = 0;
 static uint8_t  g_track_conf = 0;
 static uint8_t  g_track_has  = 0;
 
-/* ÏÔÊ¾Ä£Ê½: 0=À×´ï(L), 1=ÑÕÎÄ×Ö(E) */
-static uint8_t  g_display_mode = 1;  /* Ä¬ÈÏÑÕÎÄ×ÖÄ£Ê½ */
-static uint8_t  g_kaomoji_sel  = 0;    /* µ±Ç°ÑÕÎÄ×ÖË÷Òý 0/1/2 */
+/* ï¿½ï¿½Ê¾Ä£Ê½: 0=ï¿½×´ï¿½(L), 1=ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(E) */
+static uint8_t  g_display_mode = 1;  /* Ä¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½ */
+static uint8_t  g_kaomoji_sel  = 0;    /* ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 0/1/2 */
 
 
 /**
- * @brief ´®¿ÚÖ¸Áî½âÎöÈÎÎñ£¨¶ÀÁ¢ÔËÐÐ£¬ÉÏµç½öÆô¶¯´ËÈÎÎñ£©
- * @param pvParameters£ºÈÎÎñ²ÎÊý£¨Î´Ê¹ÓÃ£©
+ * @brief ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ñ£¨¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð£ï¿½ï¿½Ïµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ * @param pvParametersï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î´Ê¹ï¿½Ã£ï¿½
  */
 void uart_cmd_task(void *pvParameters)
 {
@@ -75,20 +75,20 @@ void uart_cmd_task(void *pvParameters)
     int len;
     uint32_t last_send_ms = 0;
 
-    pvParameters = pvParameters; // Ïû³ýÎ´Ê¹ÓÃ¾¯¸æ
+    pvParameters = pvParameters; // ï¿½ï¿½ï¿½ï¿½Î´Ê¹ï¿½Ã¾ï¿½ï¿½ï¿½
     static const char *UTAG = "uart_cmd";
     while (1)
     {
-        // ·Ç×èÈû¶ÁÈ¡´®¿ÚÊý¾Ý
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         len = uart_read_bytes(UART_NUM_1, rx_buf, RX_BUF_SIZE1, pdMS_TO_TICKS(10));
         
         if (len > 0) 
         {
             
-            // ½âÎö´®¿ÚÖ¸Áî
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½
             switch (rx_buf[0])
             {
-                /* ---- ÒôÀÖ²¥·ÅÖ¸ÁîÒÑ×¢ÊÍ ----
+                /* ---- ï¿½ï¿½ï¿½Ö²ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½×¢ï¿½ï¿½ ----
                 case 'P':
                     play_trigger = 1;
                     pause_config1 = 2;
@@ -105,27 +105,24 @@ void uart_cmd_task(void *pvParameters)
                 ---- */
 
                 case 'L':
-                case 'l': // À×´ïÄ£Ê½£º¿ªÆôÀ×´ï+LVGLÏÔÊ¾
+                case 'l': // ï¿½×´ï¿½Ä£Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´ï¿½+LVGLï¿½ï¿½Ê¾
                     ESP_LOGI(UTAG, "-> Radar mode");
                     g_display_mode = 0;
-                    radar_set_mode(1);       /* ¶àÄ¿±êÄ£Ê½ */
-                    radar_end_config();      /* ÍË³öÅäÖÃ£¬»Ö¸´Êý¾ÝÁ÷ */
                     radar_view_show();
                     kaomoji_view_hide();
                     break;
 
                 case 'E':
-                case 'e': // ÑÕÎÄ×ÖÄ£Ê½£º¹Ø±ÕÀ×´ï£¬ÏÔÊ¾ÑÕÎÄ×Ö
+                case 'e': // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½ï¿½Ø±ï¿½ï¿½×´ï£¬ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                     ESP_LOGI(UTAG, "-> Kaomoji mode");
                     g_display_mode = 1;
-                    radar_enable_config();  /* À×´ï½øÅäÖÃÄ£Ê½£¬Í£Êý¾ÝÁ÷¡¢½µ·¢ÈÈ */
-                    g_kaomoji_sel = 0;
+                     g_kaomoji_sel = 0;
                     kaomoji_view_set(0);
                     radar_view_hide();
                     kaomoji_view_show();
                     break;
 
-                case '1': // ÑÕÎÄ×Ö1
+                case '1': // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½1
                     ESP_LOGI(UTAG, "-> Kaomoji 1");
                     if (g_display_mode == 1) {
                         g_kaomoji_sel = 0;
@@ -133,7 +130,7 @@ void uart_cmd_task(void *pvParameters)
                     }
                     break;
 
-                case '2': // ÑÕÎÄ×Ö2
+                case '2': // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½2
                     ESP_LOGI(UTAG, "-> Kaomoji 2");
                     if (g_display_mode == 1) {
                         g_kaomoji_sel = 1;
@@ -141,7 +138,7 @@ void uart_cmd_task(void *pvParameters)
                     }
                     break;
 
-                case '3': // ÑÕÎÄ×Ö3
+                case '3': // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½3
                     ESP_LOGI(UTAG, "-> Kaomoji 3");
                     if (g_display_mode == 1) {
                         g_kaomoji_sel = 2;
@@ -193,17 +190,17 @@ void uart_cmd_task(void *pvParameters)
                     break;
             }
             
-            // ±ê¼Ç´®¿ÚÖ¸Áî´ý´¦Àí
+            // ï¿½ï¿½Ç´ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             uart_config1 = 1;
             
-            // Çå¿Õ´®¿Ú»º³åÇø
+            // ï¿½ï¿½Õ´ï¿½ï¿½Ú»ï¿½ï¿½ï¿½ï¿½ï¿½
             memset(rx_buf, 0, RX_BUF_SIZE1);
         }
         
-        // ÈÎÎñÑÓÊ±£¨½µµÍCPUÕ¼ÓÃ£©
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½CPUÕ¼ï¿½Ã£ï¿½
         vTaskDelay(pdMS_TO_TICKS(10));
 
-        /* 5Hz radar tracker upload (½öÀ×´ïÄ£Ê½) */
+        /* 5Hz radar tracker upload (ï¿½ï¿½ï¿½×´ï¿½Ä£Ê½) */
         uint32_t now = pdTICKS_TO_MS(xTaskGetTickCount());
         if (g_display_mode == 0 && g_track_has && (now - last_send_ms >= 100)) {
             char buf[64];
@@ -216,13 +213,13 @@ void uart_cmd_task(void *pvParameters)
     }
 }
 /**
- * @brief       ³ÌÐòÈë¿Ú
- * @param       ÎÞ
- * @retval      ÎÞ
+ * @brief       ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ * @param       ï¿½ï¿½
+ * @retval      ï¿½ï¿½
  */
 /**
- * @brief       À×´ïÊý¾Ý¶ÁÈ¡ÈÎÎñ
- * @param       pvParameters£ºÎ´Ê¹ÓÃ
+ * @brief       ï¿½×´ï¿½ï¿½ï¿½ï¿½Ý¶ï¿½È¡ï¿½ï¿½ï¿½ï¿½
+ * @param       pvParametersï¿½ï¿½Î´Ê¹ï¿½ï¿½
  */
 void radar_task(void *pvParameters)
 {
@@ -232,7 +229,7 @@ void radar_task(void *pvParameters)
     radar_tracker_init(&tracker);
     while (1)
     {
-        /* ÑÕÎÄ×ÖÄ£Ê½ÏÂÌø¹ýÀ×´ï¶ÁÈ¡£¬¼õÉÙÀ×´ïÄ£¿é·¢ÈÈ */
+        /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´ï¿½Ä£ï¿½é·¢ï¿½ï¿½ */
         if (g_display_mode != 0) {
             vTaskDelay(pdMS_TO_TICKS(100));
             continue;
@@ -270,7 +267,7 @@ void app_main(void)
 
     esp_err_t res;
 
-    res = nvs_flash_init();                             /* ³õÊ¼»¯NVS */
+    res = nvs_flash_init();                             /* ï¿½ï¿½Ê¼ï¿½ï¿½NVS */
 
     lcd_cfg_t lcd_config_info = {0};
     lcd_config_info.notify_flush_ready = NULL;
@@ -280,23 +277,22 @@ void app_main(void)
         ESP_ERROR_CHECK(nvs_flash_erase());
         ESP_ERROR_CHECK(nvs_flash_init());
     }
-    led_init();                                         /* ³õÊ¼»¯LED */
-    key_init();                                         /* ³õÊ¼»¯°´¼ü */
-    my_spi_init();                                      /* ³õÊ¼»¯SPI */
-    myiic_init();                                       /* ³õÊ¼»¯IIC */
-    xl9555_init();                                      /* ³õÊ¼»¯°´¼ü */ 
-    lcd_init(lcd_config_info);                          /* ³õÊ¼»¯LCD */
-    es8311_init(I2S_SAMPLE_RATE);                       /* ES8311³õÊ¼»¯ */
+    led_init();                                         /* ï¿½ï¿½Ê¼ï¿½ï¿½LED */
+    key_init();                                         /* ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+    my_spi_init();                                      /* ï¿½ï¿½Ê¼ï¿½ï¿½SPI */
+    myiic_init();                                       /* ï¿½ï¿½Ê¼ï¿½ï¿½IIC */
+    xl9555_init();                                      /* ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */ 
+    lcd_init(lcd_config_info);                          /* ï¿½ï¿½Ê¼ï¿½ï¿½LCD */
+    es8311_init(I2S_SAMPLE_RATE);                       /* ES8311ï¿½ï¿½Ê¼ï¿½ï¿½ */
 	usart_init(230400);
 	radar_init(256000);
-	radar_enable_config();
-	radar_set_mode(1);
-	// radar_end_config();  /* Ä¬ÈÏemojiÄ£Ê½£¬²»·¢À×´ïÊý¾Ý£¬µÈLÖ¸ÁîÔÙ¿ªÆô */
+radar_set_mode(1);
+	// radar_end_config();  /* Ä¬ï¿½ï¿½emojiÄ£Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´ï¿½ï¿½ï¿½ï¿½Ý£ï¿½ï¿½ï¿½LÖ¸ï¿½ï¿½ï¿½Ù¿ï¿½ï¿½ï¿½ */
 	
 	myi2s_init();
 
 
-    while (sd_spi_init())                               /* ¼ì²â²»µ½SD¿¨ */
+    while (sd_spi_init())                               /* ï¿½ï¿½â²»ï¿½ï¿½SDï¿½ï¿½ */
     {
         lcd_show_string(30, 120, 200, 16, 16, "SD Card Error!", RED);
         vTaskDelay(500);
@@ -304,14 +300,14 @@ void app_main(void)
         vTaskDelay(500);
     }
 
-    while (fonts_init())                                /* ¼ì²é×Ö¿â */
+    while (fonts_init())                                /* ï¿½ï¿½ï¿½ï¿½Ö¿ï¿½ */
     {
-        lcd_clear(WHITE);                               /* ÇåÆÁ */
+        lcd_clear(WHITE);                               /* ï¿½ï¿½ï¿½ï¿½ */
         lcd_show_string(30, 30, 200, 16, 16, "ESP32-S3", RED);
         
-        key = fonts_update_font(30, 50, 16, (uint8_t *)"0:", RED);  /* ¸üÐÂ×Ö¿â */
+        key = fonts_update_font(30, 50, 16, (uint8_t *)"0:", RED);  /* ï¿½ï¿½ï¿½ï¿½ï¿½Ö¿ï¿½ */
 
-        while (key)                                     /* ¸üÐÂÊ§°Ü */
+        while (key)                                     /* ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½ */
         {
             lcd_show_string(30, 50, 200, 16, 16, "Font Update Failed!", RED);
             vTaskDelay(200);
@@ -321,29 +317,29 @@ void app_main(void)
 
         lcd_show_string(30, 50, 200, 16, 16, "Font Update Success!   ", RED);
         vTaskDelay(1500);
-        lcd_clear(WHITE);                               /* ÇåÆÁ */
+        lcd_clear(WHITE);                               /* ï¿½ï¿½ï¿½ï¿½ */
     }
     
-    res = exfuns_init();                                /* ÎªfatfsÏà¹Ø±äÁ¿ÉêÇëÄÚ´æ */
+    res = exfuns_init();                                /* Îªfatfsï¿½ï¿½Ø±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú´ï¿½ */
 
-    /* LVGL³õÊ¼»¯ */
+    /* LVGLï¿½ï¿½Ê¼ï¿½ï¿½ */
     lvgl_port_init();
-    //vTaskDelay(500);                                    /* ÊµÑéÐÅÏ¢ÏÔÊ¾ÑÓÊ± */
+    //vTaskDelay(500);                                    /* Êµï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ê¾ï¿½ï¿½Ê± */
 
-    //text_show_string(30, 50, 200, 16, "ÕýµãÔ­×ÓESP32S3 BOX", 16, 0, RED);
-    //text_show_string(30, 70, 200, 16, "ÒôÀÖ²¥·Å", 16, 0, RED);
+    //text_show_string(30, 50, 200, 16, "ï¿½ï¿½ï¿½ï¿½Ô­ï¿½ï¿½ESP32S3 BOX", 16, 0, RED);
+    //text_show_string(30, 70, 200, 16, "ï¿½ï¿½ï¿½Ö²ï¿½ï¿½ï¿½", 16, 0, RED);
     //text_show_string(30, 90, 200, 16, "ATOM@ALIENTEK", 16, 0, RED);
 
  if (UART_Task_Handler == NULL)
     {
         xTaskCreatePinnedToCore(
-            uart_cmd_task,        // ´®¿ÚÈÎÎñº¯Êý
-            "uart_cmd",      // ÈÎÎñÃû³Æ
-            8192,      // ¶ÑÕ»´óÐ¡
-            NULL,                 // ÈÎÎñ²ÎÊý
-            3,       // ÓÅÏÈ¼¶£¨µÍÓÚ²¥·ÅÈÎÎñµÄ4£©
-            &UART_Task_Handler,   // ÈÎÎñ¾ä±ú
-            0                     // °ó¶¨µ½CPU0£¨²¥·ÅÈÎÎñ°óCPU1£¬±ÜÃâ³åÍ»£©
+            uart_cmd_task,        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+            "uart_cmd",      // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+            8192,      // ï¿½ï¿½Õ»ï¿½ï¿½Ð¡
+            NULL,                 // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+            3,       // ï¿½ï¿½ï¿½È¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½4ï¿½ï¿½
+            &UART_Task_Handler,   // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+            0                     // ï¿½ó¶¨µï¿½CPU0ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½CPU1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í»ï¿½ï¿½
     );
 	}
 
@@ -355,7 +351,7 @@ void app_main(void)
 	xTaskCreatePinnedToCore(
 		radar_display_task, "radar_disp", 4096, NULL, 2, &radar_display_task_handle, 0);
 
-    /* ÑÕÎÄ×ÖÏÔÊ¾ÈÎÎñ£¨ÓëÀ×´ïÏÔÊ¾ÈÎÎñÄ£Ê½»¥³â£© */
+    /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½ï¿½â£© */
     TaskHandle_t kaomoji_task_handle = NULL;
     xTaskCreatePinnedToCore(
         kaomoji_display_task, "kaomoji_disp", 8192, NULL, 2,
@@ -367,14 +363,14 @@ void app_main(void)
 
     while (1)
     {
-        /* ---- ÒôÀÖ²¥·ÅÒÑ×¢ÊÍ ----
+        /* ---- ï¿½ï¿½ï¿½Ö²ï¿½ï¿½ï¿½ï¿½ï¿½×¢ï¿½ï¿½ ----
         if (play_trigger == 1) {
             play_trigger = 0;
             audio_play();
         }
         ---- */
 
-        vTaskDelay(pdMS_TO_TICKS(1000)); /* Ö÷Ñ­»·¿ÕÏÐ */
+        vTaskDelay(pdMS_TO_TICKS(1000)); /* ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     }
 }
  
