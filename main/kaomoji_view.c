@@ -314,7 +314,14 @@ void kaomoji_display_task(void *pvParameters)
 {
     while (!g_ready) vTaskDelay(pdMS_TO_TICKS(10));
     ESP_LOGI(TAG, "task start");
-    uint32_t last_ver = 0;
+    /* 同步当前版本号，避免启动时自动加载 */
+    uint32_t last_ver;
+    if (g_mutex && xSemaphoreTake(g_mutex, pdMS_TO_TICKS(20))) {
+        last_ver = g_version;
+        xSemaphoreGive(g_mutex);
+    } else {
+        last_ver = 0;
+    }
     while (1) {
         uint8_t idx; uint32_t ver;
         if (g_mutex && xSemaphoreTake(g_mutex, pdMS_TO_TICKS(20))) {

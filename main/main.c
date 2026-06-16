@@ -287,7 +287,7 @@ void app_main(void)
     xl9555_init();                                      /* 初始化按键 */ 
     lcd_init(lcd_config_info);                          /* 初始化LCD */
     es8311_init(I2S_SAMPLE_RATE);                       /* ES8311初始化 */
-	usart_init(115200);
+	usart_init(230400);
 	radar_init(256000);
 	radar_enable_config();
 	radar_set_mode(1);
@@ -360,6 +360,10 @@ void app_main(void)
     xTaskCreatePinnedToCore(
         kaomoji_display_task, "kaomoji_disp", 8192, NULL, 2,
         &kaomoji_task_handle, 0);
+
+    while (!radar_view_is_ready()) vTaskDelay(pdMS_TO_TICKS(10));
+    kaomoji_view_show();
+    radar_view_hide();
 
     while (1)
     {

@@ -36,6 +36,7 @@ void radar_view_show(void);
  *         线程安全。
  */
 void radar_view_hide(void);
+bool radar_view_is_ready(void);     /* 查询雷达视图是否初始化完成 */
 
 /**
  * @brief  FreeRTOS任务，周期性读取共享雷达数据并更新LVGL显示
