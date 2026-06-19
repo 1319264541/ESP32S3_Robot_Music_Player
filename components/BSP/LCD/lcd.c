@@ -592,7 +592,7 @@ void lcd_display_dir(uint8_t dir)
         lcd_dev.width = lcd_dev.pwidth;
         lcd_dev.height = lcd_dev.pheight;
         esp_lcd_panel_swap_xy(panel_handle, true);          /* 不需要交换X和Y轴 */
-        esp_lcd_panel_mirror(panel_handle, true, false);    /* 对屏幕的XY轴不进行镜像处理 */
+        esp_lcd_panel_mirror(panel_handle, false, true);     /* 对屏幕的XY轴不进行镜像处理 */
     }
 }
 
