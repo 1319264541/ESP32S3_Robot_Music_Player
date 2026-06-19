@@ -63,9 +63,7 @@ static void buf_hline(uint16_t x, uint16_t y, uint16_t len, uint16_t c)
 static void show_frame(void)
 {
     if (!img_obj || !img_buf) return;
-    lvgl_port_lock();
-    lv_img_set_src(img_obj, &img_dsc);
-    lvgl_port_unlock();
+    lv_img_set_src(img_obj, &img_dsc);  /* LVGL timer context, lock already held */
 }
 
 /* ---- GIF帧刷新 ---- */
@@ -90,7 +88,7 @@ static void gif_next_frame(lv_timer_t *t)
     show_frame();
 
     uint32_t d = gif_state.delay * 10;
-    if (d < 30) d = 30;
+    if (d < 15) d = 15;
     if (d > 1000) d = 1000;
     lv_timer_set_period(t, d);
 }
@@ -253,7 +251,7 @@ static void load_gif(uint8_t idx)
 
     /* 启动帧刷新定时器 */
     uint32_t d = gif_state.delay * 10;
-    if (d < 30) d = 30;
+    if (d < 15) d = 15;
     if (d > 1000) d = 1000;
     gif_timer = lv_timer_create(gif_next_frame, d, NULL);
 

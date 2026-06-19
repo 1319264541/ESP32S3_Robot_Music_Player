@@ -658,7 +658,7 @@ void lcd_init(lcd_cfg_t lcd_config)
 
     esp_lcd_panel_io_i80_config_t io_config = {                     /* 80并口配置 */
         .cs_gpio_num = lcd_dev.cs,
-        .pclk_hz = (10 * 1000 * 1000),
+        .pclk_hz = (16 * 1000 * 1000),
         .trans_queue_depth = 10,
         .dc_levels = {
             .dc_idle_level = 0,
