@@ -21,7 +21,9 @@ static const char *FILE_NAMES[] = { "1.gif", "2.gif", "3.gif", "4.jpeg", "5.jpeg
 static lv_obj_t    *img_obj = NULL;
 static lv_img_dsc_t img_dsc;
 static uint16_t    *img_buf = NULL;
+static uint16_t    *disp_buf = NULL;  /* 320x240 pre-scale buffer */
 static uint16_t     buf_w = 0, buf_h = 0;
+static uint16_t     gif_zoom = 256;    /* scale factor (8.8 fixed) */
 static bool         g_ready = false;
 
 static uint8_t  g_idx     = 0;
@@ -62,8 +64,38 @@ static void buf_hline(uint16_t x, uint16_t y, uint16_t len, uint16_t c)
 /* ---- 显示缓冲到LVGL ---- */
 static void show_frame(void)
 {
-    if (!img_obj || !img_buf) return;
-    lv_img_set_src(img_obj, &img_dsc);  /* LVGL timer context, lock already held */
+    if (!img_obj || !img_dsc.data) return;
+    lv_img_set_src(img_obj, &img_dsc);  /* LVGL timer ctx, lock held */
+}
+
+/* ---- Pre-scale to 320x240 to skip LVGL per-frame software zoom ---- */
+static void scale_to_disp(void)
+{
+    if (!img_buf || !disp_buf) return;
+    uint16_t z = gif_zoom;
+    int full_w = ((int)buf_w * z) >> 8;
+    int full_h = ((int)buf_h * z) >> 8;
+    int vis_x = 0, vis_y = 0;
+    int vis_w = full_w, vis_h = full_h;
+    int off_x = 0, off_y = 0;
+    if (full_w > 320) { vis_x = (full_w - 320) >> 1; vis_w = 320; }
+    else { off_x = (320 - full_w) >> 1; }
+    if (full_h > 240) { vis_y = (full_h - 240) >> 1; vis_h = 240; }
+    else { off_y = (240 - full_h) >> 1; }
+    memset(disp_buf, 0xFF, 320 * 240 * 2);
+    for (int dy = 0; dy < vis_h; dy++) {
+        int fy = vis_y + dy;
+        int sy = (fy << 8) / (int)z;
+        if (sy >= (int)buf_h) sy = buf_h - 1;
+        uint16_t *dst = &disp_buf[(off_y + dy) * 320 + off_x];
+        const uint16_t *src = &img_buf[sy * buf_w];
+        for (int dx = 0; dx < vis_w; dx++) {
+            int fx = vis_x + dx;
+            int sx = (fx << 8) / (int)z;
+            if (sx >= (int)buf_w) sx = buf_w - 1;
+            dst[dx] = src[sx];
+        }
+    }
 }
 
 /* ---- GIF帧刷新 ---- */
@@ -85,10 +117,11 @@ static void gif_next_frame(lv_timer_t *t)
         if (gif_state.gifISD.flag & 0x80)
             gif_restore_ctbl(&gif_state);
     }
+    if (disp_buf) scale_to_disp();
     show_frame();
 
     uint32_t d = gif_state.delay * 10;
-    if (d < 15) d = 15;
+    if (d < 12) d = 12;
     if (d > 1000) d = 1000;
     lv_timer_set_period(t, d);
 }
@@ -105,6 +138,10 @@ static void gif_close(void)
     if (img_buf) {
         free(img_buf);
         img_buf = NULL;
+    }
+    if (disp_buf) {
+        free(disp_buf);
+        disp_buf = NULL;
     }
     memcpy(&pic_phy, &orig_phy, sizeof(pic_phy));
 }
@@ -219,6 +256,13 @@ static void load_gif(uint8_t idx)
     img_buf = malloc(need);
     if (!img_buf) { ESP_LOGE(TAG, "buf fail %u", (unsigned)need); gif_close(); goto unlock_out; }
     ESP_LOGI(TAG, "buf OK");
+    /* alloc pre-scale buffer only when GIF != 320x240 */
+    if (disp_buf) { free(disp_buf); disp_buf = NULL; }
+    if (buf_w != 320 || buf_h != 240) {
+        disp_buf = heap_caps_malloc(320 * 240 * 2, MALLOC_CAP_SPIRAM);
+        if (!disp_buf) { ESP_LOGW(TAG, "disp_buf fail, fallback LVGL zoom"); }
+        else { ESP_LOGI(TAG, "disp_buf OK"); }
+    }
 
     /* 拦截回调 */
     piclib_init();
@@ -229,19 +273,43 @@ static void load_gif(uint8_t idx)
     memset(img_buf, 0xFF, buf_w * buf_h * 2);
     gif_decode_one(&gif_file, &gif_state, 0, 0);
     if (gif_state.gifISD.flag & 0x80) gif_restore_ctbl(&gif_state);
+    if (disp_buf) scale_to_disp();  /* pre-scale if not native 320x240 */
 
-    /* 设置图像描述符 + 显示属性（只设一次，后续帧只换src） */
-    img_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
-    img_dsc.header.w  = buf_w;
-    img_dsc.header.h  = buf_h;
-    img_dsc.data_size = buf_w * buf_h * 2;
-    img_dsc.data      = (const uint8_t *)img_buf;
-    lv_img_set_src(img_obj, &img_dsc);
-    uint16_t zw = (uint16_t)((uint32_t)320 * 256 / buf_w);
-    uint16_t zh = (uint16_t)((uint32_t)240 * 256 / buf_h);
-    uint16_t zoom = (zw > zh) ? zw : zh;
-    if (zoom < 256) zoom = 256;
-    lv_img_set_zoom(img_obj, zoom);
+    /* compute zoom, set BEFORE src (avoid size-jump flicker) */
+    {
+        uint16_t zw = (uint16_t)((uint32_t)320 * 256 / buf_w);
+        uint16_t zh = (uint16_t)((uint32_t)240 * 256 / buf_h);
+        gif_zoom = (zw > zh) ? zw : zh;
+        if (gif_zoom < 256) gif_zoom = 256;
+    }
+    if (disp_buf) {
+        /* pre-scaled 320x240 buffer (GIF smaller/larger than screen) */
+        img_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
+        img_dsc.header.w  = 320;
+        img_dsc.header.h  = 240;
+        img_dsc.data_size = 320 * 240 * 2;
+        img_dsc.data      = (const uint8_t *)disp_buf;
+        lv_img_set_src(img_obj, &img_dsc);
+        lv_img_set_zoom(img_obj, 256);
+    } else if (buf_w == 320 && buf_h == 240) {
+        /* native 320x240, NO zoom or pre-scale needed */
+        img_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
+        img_dsc.header.w  = 320;
+        img_dsc.header.h  = 240;
+        img_dsc.data_size = 320 * 240 * 2;
+        img_dsc.data      = (const uint8_t *)img_buf;
+        lv_img_set_src(img_obj, &img_dsc);
+        lv_img_set_zoom(img_obj, 256);
+    } else {
+        /* fallback: native buf + LVGL zoom (no disp_buf available) */
+        img_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
+        img_dsc.header.w  = buf_w;
+        img_dsc.header.h  = buf_h;
+        img_dsc.data_size = buf_w * buf_h * 2;
+        img_dsc.data      = (const uint8_t *)img_buf;
+        lv_img_set_src(img_obj, &img_dsc);
+        lv_img_set_zoom(img_obj, gif_zoom);
+    }
     lv_obj_center(img_obj);
     lv_obj_clear_flag(img_obj, LV_OBJ_FLAG_HIDDEN);
 
@@ -251,7 +319,7 @@ static void load_gif(uint8_t idx)
 
     /* 启动帧刷新定时器 */
     uint32_t d = gif_state.delay * 10;
-    if (d < 15) d = 15;
+    if (d < 12) d = 12;
     if (d > 1000) d = 1000;
     gif_timer = lv_timer_create(gif_next_frame, d, NULL);
 

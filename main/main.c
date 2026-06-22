@@ -86,109 +86,54 @@ void uart_cmd_task(void *pvParameters)
         {
             
             // 非阻塞读取串口数据
-            switch (rx_buf[0])
-            {
-                /* ---- 音乐播放指令已注释 ----
-                case 'P':
-                    play_trigger = 1;
-                    pause_config1 = 2;
-                    break;
-                case 'O':
-                    pause_config1 = 1;
-                    break;
-                case '+':
-                    music_key1 = 2;
-                    break;
-                case '-':
-                    music_key1 = 3;
-                    break;
-                ---- */
+                        /* parse multi-char UART commands */
+            if (len >= 5 && strncmp((char *)rx_buf, "radar", 5) == 0) {
+                ESP_LOGI(UTAG, "-> Radar mode");
+                g_display_mode = 0;
+                radar_view_show();
+                kaomoji_view_hide();
+            }
+            else if (len >= 5 && strncmp((char *)rx_buf, "emoji", 5) == 0) {
+                ESP_LOGI(UTAG, "-> Kaomoji mode");
+                g_display_mode = 1;
+                g_kaomoji_sel = 0;
+                kaomoji_view_set(0);
+                radar_view_hide();
+                kaomoji_view_show();
+            }
+            else if (len >= 3 && strncmp((char *)rx_buf, "1st", 3) == 0) {
+                ESP_LOGI(UTAG, "-> Kaomoji 1");
+                if (g_display_mode == 1) { g_kaomoji_sel = 0; kaomoji_view_set(0); }
+            }
+            else if (len >= 3 && strncmp((char *)rx_buf, "2nd", 3) == 0) {
+                ESP_LOGI(UTAG, "-> Kaomoji 2");
+                if (g_display_mode == 1) { g_kaomoji_sel = 1; kaomoji_view_set(1); }
+            }
+            else if (len >= 3 && strncmp((char *)rx_buf, "3rd", 3) == 0) {
+                ESP_LOGI(UTAG, "-> Kaomoji 3");
+                if (g_display_mode == 1) { g_kaomoji_sel = 2; kaomoji_view_set(2); }
+            }
+            else if (len >= 3 && strncmp((char *)rx_buf, "4th", 3) == 0) {
+                ESP_LOGI(UTAG, "-> Kaomoji 4");
+                if (g_display_mode == 1) { g_kaomoji_sel = 3; kaomoji_view_set(3); }
+            }
+            else if (len >= 3 && strncmp((char *)rx_buf, "5th", 3) == 0) {
+                ESP_LOGI(UTAG, "-> Kaomoji 5");
+                if (g_display_mode == 1) { g_kaomoji_sel = 4; kaomoji_view_set(4); }
+            }
+            else if (len >= 3 && strncmp((char *)rx_buf, "6th", 3) == 0) {
+                ESP_LOGI(UTAG, "-> Kaomoji 6");
+                if (g_display_mode == 1) { g_kaomoji_sel = 5; kaomoji_view_set(5); }
+            }
+            else if (len >= 3 && strncmp((char *)rx_buf, "7th", 3) == 0) {
+                ESP_LOGI(UTAG, "-> Kaomoji 7");
+                if (g_display_mode == 1) { g_kaomoji_sel = 6; kaomoji_view_set(6); }
+            }
+            else if (len >= 3 && strncmp((char *)rx_buf, "8th", 3) == 0) {
+                ESP_LOGI(UTAG, "-> Kaomoji 8");
+                if (g_display_mode == 1) { g_kaomoji_sel = 7; kaomoji_view_set(7); }
+            }
 
-                case 'L':
-                case 'l': // 雷达模式：开启雷达+LVGL显示
-                    ESP_LOGI(UTAG, "-> Radar mode");
-                    g_display_mode = 0;
-                    radar_view_show();
-                    kaomoji_view_hide();
-                    break;
-
-                case 'E':
-                case 'e': // 颜文字模式：关闭雷达，显示颜文字
-                    ESP_LOGI(UTAG, "-> Kaomoji mode");
-                    g_display_mode = 1;
-                     g_kaomoji_sel = 0;
-                    kaomoji_view_set(0);
-                    radar_view_hide();
-                    kaomoji_view_show();
-                    break;
-
-                case '1': // 颜文字1
-                    ESP_LOGI(UTAG, "-> Kaomoji 1");
-                    if (g_display_mode == 1) {
-                        g_kaomoji_sel = 0;
-                        kaomoji_view_set(0);
-                    }
-                    break;
-
-                case '2': // 颜文字2
-                    ESP_LOGI(UTAG, "-> Kaomoji 2");
-                    if (g_display_mode == 1) {
-                        g_kaomoji_sel = 1;
-                        kaomoji_view_set(1);
-                    }
-                    break;
-
-                case '3': // 颜文字3
-                    ESP_LOGI(UTAG, "-> Kaomoji 3");
-                    if (g_display_mode == 1) {
-                        g_kaomoji_sel = 2;
-                        kaomoji_view_set(2);
-                    }
-                    break;
-
-                case '4':
-                    ESP_LOGI(UTAG, "-> Kaomoji 4");
-                    if (g_display_mode == 1) {
-                        g_kaomoji_sel = 3;
-                        kaomoji_view_set(3);
-                    }
-                    break;
-
-                case '5':
-                    ESP_LOGI(UTAG, "-> Kaomoji 5");
-                    if (g_display_mode == 1) {
-                        g_kaomoji_sel = 4;
-                        kaomoji_view_set(4);
-                    }
-                    break;
-
-                case '6':
-                    ESP_LOGI(UTAG, "-> Kaomoji 6");
-                    if (g_display_mode == 1) {
-                        g_kaomoji_sel = 5;
-                        kaomoji_view_set(5);
-                    }
-                    break;
-
-                case '7':
-                    ESP_LOGI(UTAG, "-> Kaomoji 7");
-                    if (g_display_mode == 1) {
-                        g_kaomoji_sel = 6;
-                        kaomoji_view_set(6);
-                    }
-                    break;
-
-                case '8':
-                    ESP_LOGI(UTAG, "-> Kaomoji 8");
-                    if (g_display_mode == 1) {
-                        g_kaomoji_sel = 7;
-                        kaomoji_view_set(7);
-                    }
-                    break;
-
-                default:
-                    break;
-            }
             
             // 非阻塞读取串口数据
             uart_config1 = 1;

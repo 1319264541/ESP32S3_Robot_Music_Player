@@ -14,7 +14,7 @@ static const char *TAG = "lvgl_port";
 
 #define DISP_W  320
 #define DISP_H  240
-#define BUF_LINES  80  /* 单缓冲80行 = 51.2KB，双缓冲共102.4KB */
+#define BUF_LINES  120  /* 120 lines = 76.8KB per buf, 2 chunks/frame */  /* 80 lines = 51.2KB per buf, 102.4KB dual */
 
 static lv_color_t *disp_buf1;
 static lv_color_t *disp_buf2;
